@@ -171,8 +171,53 @@ sqrt(eigen_data5$values[2]/8)
 sqrt(eigen_data5$values[3]/8)
 ```
 
+**GRAPHICAL REPRESENTATION**
+
+If we did a graphic just for the first two PCS:
+
+```{r}
+library(devtools)
+require(ggbiplot)
+ggbiplot(pca_data5,labels = row.names(data5_variables))
+```
+
+However, we decided to work with the first 3 PCs.
+So, if we did a graphic for the first 3 PCs:
 
 
+```{r}
+library(plotly)
+
+# Supondo que você tenha feito o PCA:
+pca_data5_2 <- prcomp(data5_variables, scale. = TRUE)
+
+pca_scores <- as.data.frame(pca_data5_2$x)
+
+var_explained <- (pca_data5$sdev)^2 / sum((pca_data5$sdev)^2)
+
+pc1_label <- paste0("PC1 (", round(var_explained[1] * 100, 1), "%)")
+pc2_label <- paste0("PC2 (", round(var_explained[2] * 100, 1), "%)")
+pc3_label <- paste0("PC3 (", round(var_explained[3] * 100, 1), "%)")
+
+plot_ly(pca_scores,
+        x = ~PC1,
+        y = ~PC2,
+        z = ~PC3,
+        type = 'scatter3d',
+        mode = 'markers',
+        text = rownames(pca_scores),
+        marker = list(size = 4)
+)%>%
+  layout(
+    title = "3D Graphic with the first 3 PCs",
+    scene = list(
+      xaxis = list(title = pc1_label),
+      yaxis = list(title = pc2_label),
+      zaxis = list(title = pc3_label)
+    )
+  )
+
+```
 
 
 
