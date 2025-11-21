@@ -1,0 +1,61 @@
+---
+title: "new test"
+output-file:
+  - html
+---
+
+
+# Intro.
+
+## Importing data.
+
+```{r, echo=FALSE}
+# Import data.
+data <- read.csv("./data/data_5.csv")
+```
+
+## Visualizing data.
+
+```{r, echo=FALSE}
+head(data)
+str(data)
+dim(data)
+```
+
+## Removing non numerical data.
+
+```{r}
+library(dplyr)
+data_variables <- select_if(data, is.numeric)
+head(data_variables)
+str(data_variables)
+dim(data_variables)
+
+```
+
+
+## Data varialbes.
+
+```{r}
+summary(data_variables)
+```
+
+## Standard deviation.
+
+```{r dispersion-measures}
+# Calculate standard deviation for each variable.
+library(dplyr)
+data_variables %>% summarize_if(is.numeric, sd)
+```
+
+```{r}
+pairs(data_variables)
+```
+
+
+
+
+
+
+
+

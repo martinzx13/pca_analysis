@@ -1,0 +1,28 @@
+Project Multivariate data Analysis (guidelines) - 2025/26
+cód. disc. 421105
+Departamento de Estatı́stica e Investigação Operacional
+
+Hand out on October 20, 2025
+Data delivery on November 3, 2025
+To be handed back by December 9, 2025
+
+As a result of an experimental situation a set of data has to be analysed. The researcher has rudimentary
+knowledge about multivariate analysis and wants to the help of a statistician to work on his problem. The
+dataset and a brief description of the observed variables will be sent by email.
+
+1. Make a preliminary analysis of the data and discuss what you have learned from this analysis.
+2. Conduct a principal component analysis exploring the potentialities of this method. Include in your
+discussion topics like dimensionality reduction, interpretation of principal components.
+3. Conduct a cluster analysis exploring the hierarchical approach.Include in your discussion advantages and
+limitations of each methodology used.
+4. Compare the results obtained in (2) and (3).
+5. Interpretation of the results. Translate the statistical results in current language, accessible to the
+researcher who, hypothetically, have proposed the project.
+About the report:
+• The report should not have more than 20 pages.
+• Do not forget topics like: goals, estimation methods, decisions, conclusions of the study, and references.
+• The R code, as well as the report must be send by email to eitrigueirao@fc.ul.pt.
+
+1
+
+

@@ -1,0 +1,326 @@
+---
+title: "Project Multivariate data Analysis"
+author:
+  - "Sara Vasques"
+  - "Rita "
+  - "Juan Pablo Martinez Aldana"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    fig_caption: true
+    highlight: tango
+    citation_package: biblatex
+bibliography: ../library.bib
+fontsize: 11pt
+geometry: margin=1in
+header-includes:
+  - \setlength{\headheight}{14pt}
+  - \usepackage{xcolor}
+  - \definecolor{teal}{RGB}{0,128,128}
+  - \usepackage{sectsty}
+  - \sectionfont{\color{teal}}
+  - \subsectionfont{\color{teal}}
+  - \usepackage{titlesec}
+  - \titleformat{\section}{\Large\bfseries\color{teal}}{\thesection}{1em}{}
+  - \titleformat{\subsection}{\large\bfseries\color{teal}}{\thesubsection}{0.5em}{}
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyhead[L]{\color{teal}Importance of biological samples}
+  - \fancyhead[R]{\color{teal}\thepage}
+  - \fancyfoot{}
+---
+
+# Abstract
+
+Air pollution in urban environments is a significant public health concern.
+Some evidence indicates that air pollution exposure has way more consecuences that the onces
+that we thought previously. In terms of adverse health impacts like the reduction in life expectancy, and hospital
+admissions, birth outcomes, and asthma. Nevertheless, these effects exist in both economically developing and
+developed countries [1].
+
+Classical PCA can be expressed as a projection-based approach, finding the low-dimensional space that
+best represents a cloud of high-dimensional points. With this we can do a dimensional reduction using our
+principal components (PC). [2]
+
+Due to the reasons mention before,
+This project aims to analyze a dataset of 41 US cities to identify underlying patterns and relationships
+between pollution levels, climatic conditions, and demographic or industrial factors.
+
+The study utilizes multivariate techniques, primarily **Principal Component Analysis (PCA)** and **Cluster Analysis**, to reduce the complexity of the data and group cities with similar profiles.
+The objective is to translate complex statistical relationships into clear, interpretable insights.
+
+The dataset contains the following variables:
+ **so2**: Sulfur dioxide content of air in micrograms per cubic meter
+ **temp**: Average annual temperature in Fahrenheit
+ **manuf**: Number of manufacturing enterprises employing 20 or more workers
+ **pop**: Population size (1970 census) in thousands
+ **wind**: Average wind speed in miles per hour
+ **precip**: Average annual precipitation in inches
+ **days**: Average number of days with precipitation per year
+
+# Preliminary analysis of the data
+
+Before applying multivariate methods, a preliminary analysis is essential to understand the individual variables and their pairwise relationships.
+
+```{r data-loading, echo=FALSE}
+# The data is loaded from the folder data/data5.csv
+
+data5 <- read.csv("./data/data_5.csv", header = TRUE)
+head(data5)
+```
+
+```{r data-structure, echo=FALSE}
+# Display the dimensions and structure of the dataset.
+dim(data5)
+str(data5)
+```
+
+## Numerical Data
+
+```{r variable-selection, echo=FALSE}
+# We select only the numeric variables for the analysis. (I modify the selector using seletc_if
+# In order to make it more global and we can apply to any data in the future.
+
+library(dplyr)
+data5_variables <- select_if(data5, is.numeric)
+head(data5_variables)
+```
+
+## Descriptive Statistics
+```{r localization-measures, echo=FALSE}
+# Calculate and display summary statistics for each variable.
+summary(data5_variables)
+```
+
+We identify that `manuf` and `pop` have a mean is significantly larger than the median, for `manuf` was found
+463 vs 347 respectivetyly and for `pop` was  608 vs 515 respectivetily.
+Furthermore, the maximum values (3344, 3369) are in order of magnitude greater than the 75th percentile (462, 717) for both variables.
+
+With this we could infer that the dataset does not contain 41 similar cities. It contains a majority of "typical" cities and a few
+massive outliers, metropolitan big cities. In other to avoid that our analysis
+was dominated by these few outliers ew decide to use a corretation analysis to normalize our data.
+
+Also we notice that the data, is in different units, and every unit meassure different things which make
+very important the use of the correlational matriz to perform the analysis.
+
+```{r dispersion-measures}
+# Calculate standard deviation for each variable.
+library(dplyr)
+data5_variables %>% summarise_if(is.numeric, sd)
+```
+The standard deviations for `pop` and `manuf` are orders of magnitude larger than for other
+variables, confirming their high variance.
+
+For example, the sd of `pop` is 579.733 and the sd of `wind` is 1.4 in this case if we run a PCA with this data, it will
+determine that all the variation is happening around `pop` and not `wind`.
+This is why we need to perform a correlation analysis so all our data, can have a standard deviation of 1 and a mean of 0. So
+when we run the PCA we can find the direction that will maximize the variance, based on the correlation between the variables.
+
+For the reasons mention above we will ues the correlation matrix in order to perform our PCA.
+
+## Correlation Analysis
+
+```{r pairs-plot}
+# Visualize pairwise relationships between all variables.
+pairs(data5_variables, main="Pairs Plot Air Pollution Data")
+```
+
+```{r correlation-matrix}
+# Calculate and display the correlation matrix.
+cor(data5_variables)
+```
+
+By looking at the plot and the correlation values between the variables
+we can observe that the population size and the number of manufacturing
+enterprises employing 20 or more workers is strongly correlated (0.955). We can see that the most populated cities in this study (looking at the initial data, data5), employ more people.
+Then, we can observe that the number of manufacturing enterprises employing workers and the sulfur dioxide content of air (mg/m3) are correlated as well (0.645), which means that the manufacturing enterprises that employ 20 or more workers end up influencing so2 levels, which makes sense.
+Population and so2 levels are correlated as well (0.494), and precipitation and number of days too (0.496).
+Even though with a lower value, precipitation  and temperature variables are correlated (0.386).
+
+The correlation matrix reveals several key relationships:
+- A very strong positive correlation (0.96) between `manuf` and `pop`.
+- A moderate positive correlation (0.65) between `manuf` and `so2`.
+This suggests that industrial and population factors are closely linked and are associated with higher SO2 pollution.
+
+# Principal Component Analysis (PCA)
+
+PCA will be used to reduce the dimensionality of the dataset. By creating a smaller set of
+uncorrelated components, we can simplify the data while retaining most of the original variance.
+We will use the correlation matrix (`scale = TRUE`) to account for the different units and scales of the original variables.
+
+```{r pca}
+# Perform PCA.
+pca_results <- prcomp(data5_variables, scale = TRUE)
+summary(pca_results)
+```
+
+## Justification for Number of Components
+
+We use two criteria to select the number of components to retain.
+
+### Kaiser's Criterion
+```{r kaiser-criterion}
+eigenvalues <- pca_results$sdev^2
+print(eigenvalues)
+cat("\nNumber of eigenvalues > 1:", sum(eigenvalues > 1), "\n")
+```
+The first two components have eigenvalues greater than 1, suggesting they are significant.
+
+### Scree Plot
+```{r scree-plot}
+library(ggplot2)
+scree_data <- data.frame(
+  component = 1:length(eigenvalues),
+  variance_explained = eigenvalues / sum(eigenvalues)
+)
+ggplot(scree_data, aes(x = component, y = variance_explained)) +
+  geom_line() + geom_point(size=3) +
+  labs(title = "Scree Plot", x = "Principal Component", y = "Proportion of Variance Explained") +
+  theme_minimal()
+```
+The scree plot shows a distinct "elbow" after the second component. Both criteria indicate that **2 principal components** are sufficient for our analysis, capturing ~65% of the total variance.
+
+## Component Interpretation (Loadings)
+
+```{r loadings}
+# The loadings show how original variables contribute to each PC.
+print(pca_results$rotation)
+```
+
+*   **Principal Component 1 (PC1):** High positive loadings for `manuf`, `pop`, and `so2`. This is an **"Industrialization and Urbanization"** axis.
+*   **Principal Component 2 (PC2):** High positive loadings for `precip` and `days` and a high negative loading for `temp`. This is a **"Climate"** axis, separating cold, wet cities from warm, dry ones.
+
+## Visualization
+
+```{r biplot}
+library(ggbiplot)
+ggbiplot(pca_results, labels = data5$city, ellipse = TRUE, circle = TRUE) +
+  theme_minimal() +
+  labs(title = "PCA Biplot of US Cities",
+       subtitle = "PC1: Industrialization/Urbanization, PC2: Climate (Cold/Wet vs. Warm/Dry)")
+```
+The biplot provides a visual confirmation of our interpretations and shows how cities relate to these new axes.
+
+So, if we did a graphic for the first 3 PCs:
+
+#############________________ review the 3d in the pfd format. 
+```{r, eval=FALSE}
+library(plotly)
+
+# Supondo que você tenha feito o PCA:
+data5_2 <- prcomp(data5_variables, scale. = TRUE)
+
+pca_scores <- as.data.frame(data5_2$x)
+
+var_explained <- (data5$sdev)^2 / sum((data5$sdev)^2)
+
+pc1_label <- paste0("PC1 (", round(var_explained[1] * 100, 1), "%)")
+pc2_label <- paste0("PC2 (", round(var_explained[2] * 100, 1), "%)")
+pc3_label <- paste0("PC3 (", round(var_explained[3] * 100, 1), "%)")
+
+plot_ly(pca_scores,
+        x = ~PC1,
+        y = ~PC2,
+        z = ~PC3,
+        type = 'scatter3d',
+        mode = 'markers',
+        text = rownames(pca_scores),
+        marker = list(size = 4)
+)%>%
+  layout(
+    title = "3D Graphic with the first 3 PCs",
+    scene = list(
+      xaxis = list(title = pc1_label),
+      yaxis = list(title = pc2_label),
+      zaxis = list(title = pc3_label)
+    )
+  )
+
+```
+
+# Cluster Analysis
+
+Now we will group similar cities using hierarchical clustering. We will perform this on the PCA scores, not the original data, to cluster on the most important, de-noised patterns.
+
+```{r hierarchical-clustering}
+# GOAL: Perform hierarchical clustering on the first two PCA scores.
+# 1. Extract the first two columns from pca_results$x.
+# 2. Calculate the distance matrix using dist().
+# 3. Perform clustering using hclust().
+# 4. Plot the resulting dendrogram.
+#
+# Placeholder:
+# pca_scores <- as.data.frame(pca_results$x[, 1:2])
+# distance_matrix <- dist(pca_scores)
+# hclust_results <- hclust(distance_matrix, method = "complete")
+# plot(hclust_results, labels = data5$city, main = "Hierarchical Clustering Dendrogram")
+```
+
+## Determining the Number of Clusters & Characterization
+
+Based on the dendrogram, you must decide how many clusters to form and justify it. Then, you will characterize them.
+
+```{r cluster-characterization}
+# GOAL: Cut the tree and analyze the resulting clusters.
+# 1. Choose a number of clusters (e.g., 3, 4) based on the dendrogram.
+# 2. Use cutree() to get the cluster assignments for each city.
+# 3. Add the cluster assignments as a new column to the `data5` dataframe.
+# 4. Use group_by() and summarise() from dplyr to calculate the mean of the original variables for each cluster.
+# 5. Interpret the `cluster_means` table to describe the profile of each cluster.
+#
+# Placeholder:
+# num_clusters <- 4
+# city_clusters <- cutree(hclust_results, k = num_clusters)
+# data5_clustered <- cbind(data5, cluster = city_clusters)
+# cluster_means <- data5_clustered %>%
+#   group_by(cluster) %>%
+#   summarise_at(vars(so2:days), mean)
+# print(cluster_means)
+```
+
+# Spatial Analysis & Comparison
+
+This section elevates the project by mapping the results, as inspired by the provided literature. We will investigate if the clusters we identified have a geographic pattern.
+
+```{r mapping-setup}
+# GOAL: Prepare for mapping.
+# You will need a way to get latitude and longitude for the US cities in your dataset.
+# The `ggmap` or `tidygeocoder` packages in R are excellent for this.
+# You will need to geocode the city names to get their coordinates.
+#
+# Placeholder:
+# library(tidygeocoder)
+# lat_longs <- geocode(data5_clustered, city = city)
+```
+
+```{r mapping-clusters}
+# GOAL: Create a map of the US with cities colored by cluster.
+# Use a mapping library like `leaflet` or `ggplot2` with `maps`.
+#
+# Placeholder using ggplot2:
+# library(ggplot2)
+# library(maps)
+# us_map <- map_data("state")
+# ggplot() +
+#   geom_polygon(data = us_map, aes(x = long, y = lat, group = group), fill = "grey80", color = "white") +
+#   geom_point(data = lat_longs, aes(x = longitude, y = latitude, color = as.factor(cluster)), size = 3) +
+#   coord_map("albers", lat0 = 39, lat1 = 45) +
+#   theme_minimal() +
+#   labs(title = "Geographic Distribution of City Clusters", color = "Cluster")
+```
+
+## Discussion of Spatial Patterns
+
+
+# Conclusion
+
+*   What were the main patterns you found in the data? (e.g., "Our analysis identified two primary axes of variation among US cities: one related to industrialization and a second related to climate.")
+*   What types of city clusters did you identify? (e.g., "We found four distinct city profiles: ...")
+*   Did these clusters show a geographic pattern?
+*   What are the practical implications of these findings for a city planner or environmental agency?
+
+# Bibliography
