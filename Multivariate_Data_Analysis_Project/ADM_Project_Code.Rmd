@@ -46,7 +46,7 @@ Some evidence indicates that air pollution exposure has way more consequences th
 Classical PCA can be expressed as a projection-based approach, since it's a method that projects high-dimensional data into a lower-dimensional space by finding the principal components (PC) that best represent the original information. With this, we can do a dimensional reduction while preserving the essential structure of the data. [2]
 
 
-Due to the reasons mention before, this project aims to analyze a dataset of 41 US cities to identify underlying patterns and relationships between pollution levels, climatic conditions, and demographic or industrial factors.
+Due to the reasons mentioned before, this project aims to analyze a dataset of 41 US cities to identify underlying patterns and relationships between pollution levels, climatic conditions, and demographic or industrial factors.
 
 The study utilizes multivariate techniques, primarily **Principal Component Analysis (PCA)** and **Cluster Analysis**, to reduce the complexity of the data and group cities with similar profiles.
 The objective is to translate complex statistical relationships into clear, interpretable insights.
@@ -74,8 +74,8 @@ Before applying multivariate methods, a preliminary analysis is essential to und
 ```{r data-loading, echo=FALSE}
 # The data is loaded from the folder data/data5.csv
 
-#data5 <- read.csv("./data/data_5.csv", header = TRUE)
-data5 <- read.csv("data_5.csv", header = TRUE)
+data5 <- read.csv("./data/data_5.csv", header = TRUE)
+#data5 <- read.csv("data_5.csv", header = TRUE)
 head(data5)
 ```
 
@@ -105,13 +105,13 @@ head(data5_variables)
 summary(data5_variables)
 ```
 
-We identify that `manuf` and `pop` have a mean is significantly larger than the median. For `manuf`, it was found that it has a mean of 463.1 and a median of 347. For `pop`, the results were 608 to 515 respectively.
+We identify that `manuf` and `pop` have a mean significantly larger than the median. For `manuf`, it was found that it has a mean of 463.1 and a median of 347. For `pop`, the results were 608 to 515 respectively.
 Furthermore, the maximum values (3344, 3369) are in order of magnitude greater than the 75th percentile (462, 717) for both variables.
 
-With this we could infer that the dataset does not contain 41 similar cities. It contains a majority of "typical" cities and a few massive outliers, metropolitan big cities. In other to avoid that our analysis
-was dominated by these few outliers we decide to use a correlation analysis to normalize our data.
+With this we could infer that the dataset does not contain 41 similar cities. It contains a majority of "typical" cities and a few massive outliers, metropolitan big cities. In order to avoid that our analysis
+was dominated by these few outliers, we decided to use a correlation analysis to normalize our data.
 
-We also noticed that the data is in different units, and every unit measured different things which make
+We also noticed that the data is in different units, and every unit measured different things which made
 very important the use of the *correlation matrix* to perform this first type of analysis.
 
 Adding up to that, we can check the standard deviation of the variables:
@@ -127,7 +127,7 @@ data5_variables %>% summarise_if(is.numeric, sd)
 Since the standard deviations for `pop` and `manuf` are orders of magnitude larger than for other
 variables, we can confirm their high variance.
 
-For example, the sd of `pop` is 579.733 and the sd of `wind` is 1.4 in this case if we run a PCA with this data, it will determine that all the variation is happening around `pop` and not `wind`.
+For example, the sd of `pop` is 579.733 and the sd of `wind` is 1.4. In this case if we run a PCA with this data, it will determine that all the variation is happening around `pop` and not `wind`.
 This is why we also need to perform a correlation analysis so that all our variables can have a standard deviation of 1 and a mean of 0.
 
 When we run the PCA on the correlation matrix we will do after this, we can find the directions (PCs) that will maximize the standardized variance based on the correlation relationships between the variables.
@@ -224,7 +224,7 @@ ggplot(scree_data, aes(x = component, y = variance_explained)) +
 ```
 
 
-*Analyzing the results*, in this plot, the elbow point would be between PC2 and PC3. However, if we consider he other criterias we have applied before, it would be best to use 3 PCs, having approximately 81% of the variance explained.
+*Analyzing the results*, in this plot, the elbow point would be between PC2 and PC3. However, if we consider the other criterias we have applied before, it would be best to use 3 PCs, having approximately 81% of the variance explained.
 
 **SO LET'S CONSIDER 3 PCs.**
 
@@ -443,6 +443,117 @@ coph_1_s <- cophenetic(clust_single_s)
 
 #Cophenetic coefficient
 cor(dist_data5, coph_1_s)
+```
+
+
+## Cluster Analysis with the PCA Data
+
+Considering 3 principal components for the PCA data :
+```{r}
+pca_results$sdev
+```
+```{r}
+pca_results$sdev[1:3]
+```
+In order to perform and obtain the dendograms, we need to determine the distances
+(to cluster the groups).
+
+```{r}
+pca_cluster <- pca_scores[,1:3] ; pca_cluster
+```
+
+
+```{r}
+#dissimilarity matrix : squared euclidean distance
+dist_pca <- dist(pca_cluster,method="euclidean")
+dist_pca
+```
+**Let´s perform the Hierarchical Clustering**.
+
+### SINGLE LINKAGE
+```{r}
+#hierarchical clustering (aglommerative) using Single Linkage
+hcpca1 <- agnes(dist_pca,method="single") #agnes Computes agglomerative hierarchical clustering of the dataset.
+
+```
+
+```{r}
+hcpca1$merge
+```
+Visualize the order in which the objects, clustered, appear in the dendrogram.
+
+```{r}
+hcpca1$order
+```
+The **agglomeration coefficient (AC)** describes the strength of the
+clustering structure that has been obtained by **Single Linkage**.
+However, this coefficient tends to become larger when n increases, so it should
+not be used to compare data sets of very different sizes.
+The coefficient takes values from 0 to 1 and it is actually the mean of the
+normalized lengths at which the clusters are formed.
+
+```{r}
+hcpca1$ac
+```
+As we can see, the ac is very high, meaning that the algorithm performed poorly in this case (far from 1).
+
+**Dendogram**
+
+```{r}
+plot(hcpca1)
+```
+Considering 4 clusters:
+```{r}
+cutree(hcpca1,4)
+cbind(row.names(pca_cluster),cutree(hcpca1,4))
+```
+Destacar os clusters considerados:
+```{r}
+plot(hcpca1)
+rect.hclust(hcpca1,k=4,border=2:4)
+```
+With another function to perform clustering :
+
+**Cophenetic coefficient** (it gives us the relation between the
+distance matrix in the beggining and the one obtained from the
+dendogram) :
+
+```{r}
+clust_pca <- clustering(pca_cluster,distmethod = "euclidean",clustmethod = "single")
+clust_pca$cophenetic
+```
+The cophenetic coefficient has a quite high value. 
+
+
+```{r}
+plot(clust_pca,horiz=FALSE,main="Single Linkage method")
+```
+To compare with the complete linkage method:
+
+```{r}
+hcpca2 <- agnes(pca_cluster,method="complete")
+hcpca2$merge
+```
+```{r}
+hcpca2$order
+```
+```{r}
+plot(hcpca2,main="Complete Linkage - PCA data")
+rect.hclust(hcpca2,k=4,border=2:4)
+```
+```{r}
+clust_pca2 <- clustering(pca_cluster,distmethod = "euclidean",clustmethod = "complete")
+clust_pca2$cophenetic
+```
+```{r}
+plot(clust_pca2,horiz=FALSE,main="Complete Linkage method")
+```
+The single method was better than the complete method. 
+
+```{r}
+par(mfrow=c(1,2))
+plot(clust_pca,horiz=FALSE,main="SL")
+plot(clust_pca2,horiz=FALSE,main="CL")
 ```
 
 
