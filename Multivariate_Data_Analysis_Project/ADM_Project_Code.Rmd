@@ -9,18 +9,18 @@ output:
   html_document:
     toc: TRUE
     toc_float: TRUE
-  #pdf_document:
-    #latex_engine: xelatex
-    #toc: true
-    #toc_depth: 2
-    #number_sections: true
-    #fig_caption: true
-    #highlight: tango
-    #citation_package: biblatex
-#bibliography: ../library.bib
-#fontsize: 11pt
-#geometry: margin=1in
-#header-includes:
+#   pdf_document:
+#     latex_engine: xelatex
+#     toc: true
+#     toc_depth: 2
+#     number_sections: true
+#     fig_caption: true
+#     highlight: tango
+#     citation_package: biblatex
+# bibliography: ../library.bib
+# fontsize: 11pt
+# geometry: margin=1in
+# header-includes:
 #  - \setlength{\headheight}{14pt}
 #  - \usepackage{xcolor}
 #  - \definecolor{teal}{RGB}{0,128,128}
@@ -71,11 +71,18 @@ The dataset contains the following variables:
 
 Before applying multivariate methods, a preliminary analysis is essential to understand the individual variables and their pairwise relationships.
 
+```{r setup-spatial-toggle, include=FALSE}
+# --- ANALYSIS CONTROL ---
+# Set this to TRUE if you have a stable internet connection to generate the city map.
+# If the script gets stuck on the geocoding step, set this to FALSE and re-run.
+run_spatial_analysis <- TRUE
+```
+
 ```{r data-loading, echo=FALSE}
 # The data is loaded from the folder data/data5.csv
 
 #data5 <- read.csv("./data/data_5.csv", header = TRUE)
-data5 <- read.csv("data_5.csv", header = TRUE)
+data5 <- read.csv("./data/data_5.csv", header = TRUE)
 head(data5)
 ```
 
@@ -216,7 +223,7 @@ scree_data <- data.frame(
   variance_explained = eigenvalues / sum(eigenvalues)
 )
 ggplot(scree_data, aes(x = component, y = variance_explained)) +
-  geom_line() + 
+  geom_line() +
   geom_point(size=3) +
   ylim(0,1) +
   labs(title = "Scree Plot", x = "Principal Component", y = "Proportion of Variance Explained") +
@@ -228,14 +235,14 @@ ggplot(scree_data, aes(x = component, y = variance_explained)) +
 
 **SO LET'S CONSIDER 3 PCs.**
 
-Now, we need to see which are the variables that contribute more for the explanation of each principal component retained. 
+Now, we need to see which are the variables that contribute more for the explanation of each principal component retained.
 We need to have a correlation matrix between the variables and the PCs (the loadings).
 
 
 ## Component Interpretation (Loadings)
 
 ```{r component matrix}
-# Correlation between original variables and the PCs (loadins) 
+# Correlation between original variables and the PCs (loadins)
 
 component_matrix <- cor(data5_variables,pca_results$scores)
 component_matrix
@@ -330,7 +337,7 @@ The biplot provides a visual confirmation of our interpretations and shows how c
 
 So, if we did a graphic for the first 3 PCs:
 
-*This 3D graphic is not visible in the pfd format.* 
+*This 3D graphic is not visible in the pfd format.*
 ```{r, eval=TRUE}
 library(plotly)
 
@@ -378,6 +385,9 @@ library(factoextra) #clustering visualization
 library(dendextend) #for comparing two dendograms
 library(laGP) #squared Euclidean distance
 library(metan) #clustering algorithms
+library(tidygeocoder) # for geocoding
+library(maps) # for map data
+
 ```
 
 ## Cluster Analysis with the Original Data
@@ -400,7 +410,7 @@ dist_data5
 ```
 We used the *Squared Euclidean distance*.
 
-To determine which values are going to be clustered, we need to look at the values that have the lowest distance between them. 
+To determine which values are going to be clustered, we need to look at the values that have the lowest distance between them.
 Based on the *dissimilarity matrix*, the pair with the lowest distance should be joint first.
 
 **Let´s perform the Hierarchical Clustering**.
@@ -633,7 +643,7 @@ With another function to perform clustering :
 clust_pca <- clustering(pca_cluster,distmethod = "euclidean",clustmethod = "single")
 clust_pca$cophenetic
 ```
-The cophenetic coefficient has a quite high value. 
+The cophenetic coefficient has a quite high value.
 
 ```{r}
 plot(clust_pca,horiz=FALSE,main="Single Linkage method")
@@ -670,7 +680,7 @@ dend2_pca
 plot(dend2_pca,main="Complete Linkage for PCA data (3 clusters)")
 rect.hclust(hcpca2,k=3,border=2:4)
 ```
-**Cophenetic coefficient** 
+**Cophenetic coefficient**
 
 ```{r}
 clust_pca2 <- clustering(pca_cluster,distmethod = "euclidean",clustmethod = "complete")
@@ -689,7 +699,7 @@ rect.hclust(hcpca2,k=4,border=2:4)
 ```
 
 
-The single method was better than the complete method. 
+The single method was better than the complete method.
 
 ```{r}
 par(mfrow=c(1,2))
@@ -716,7 +726,7 @@ dend3_pca
 plot(dend3_pca,main="Ward method for PCA data (3 clusters)")
 rect.hclust(hcpca1,k=3,border=2:4)
 ```
-**Cophenetic coefficient** 
+**Cophenetic coefficient**
 
 ```{r}
 clust_pca3 <- clustering(pca_cluster,distmethod = "euclidean",clustmethod = "ward.D")
@@ -727,7 +737,7 @@ The cophenetic coefficient has a low value with this method of clustering.
 ```{r}
 plot(clust_pca3,horiz=FALSE,main="Ward method")
 ```
-Let´s consider 4 clusters, instead of 3 : 
+Let´s consider 4 clusters, instead of 3 :
 
 ```{r}
 order_in_dend <- order.dendrogram(dend3_pca)
@@ -761,54 +771,71 @@ Based on the cophenetic coefficient, Single Linkage was the best method. But the
 Based on the dendrogram, you must decide how many clusters to form and justify it. Then, you will characterize them.
 
 ```{r cluster-characterization}
-# GOAL: Cut the tree and analyze the resulting clusters.
-# 1. Choose a number of clusters (e.g., 3, 4) based on the dendrogram.
-# 2. Use cutree() to get the cluster assignments for each city.
-# 3. Add the cluster assignments as a new column to the `data5` dataframe.
-# 4. Use group_by() and summarise() from dplyr to calculate the mean of the original variables for each cluster.
-# 5. Interpret the `cluster_means` table to describe the profile of each cluster.
-#
-# Placeholder:
-# num_clusters <- 4
-# city_clusters <- cutree(hclust_results, k = num_clusters)
-# data5_clustered <- cbind(data5, cluster = city_clusters)
-# cluster_means <- data5_clustered %>%
-#   group_by(cluster) %>%
-#   summarise_at(vars(so2:days), mean)
-# print(cluster_means)
+# GOAL: Cut the tree and assign clusters to characterize them.
+
+# 1. Choose a number of clusters (e.g., 4) based on the dendrogram.
+num_clusters <- 4
+city_clusters <- cutree(hcpca3, k = num_clusters)
+
+# 2. Add the cluster assignments to the original data frame.
+data_with_clusters <- data5 %>%
+  mutate(cluster = city_clusters)
+
+# 3. Calculate the mean of the original variables for each cluster.
+# THIS IS THE CRITICAL INTERPRETATION STEP.
+cluster_means <- data_with_clusters %>%
+  group_by(cluster) %>%
+  summarise_at(vars(so2, temp, manuf, pop, wind, precip, days), mean, na.rm = TRUE)
+
+# 4. Print the cluster profiles. You MUST interpret this table in your report.
+print("Cluster Profiles (Mean Values):")
+print(cluster_means)
 ```
 
 # Spatial Analysis & Comparison
 
-This section elevates the project by mapping the results, as inspired by the provided literature. We will investigate if the clusters we identified have a geographic pattern.
+This section elevates the project by mapping the results. We will investigate if the clusters we identified have a geographic pattern.
 
-```{r mapping-setup}
-# GOAL: Prepare for mapping.
-# You will need a way to get latitude and longitude for the US cities in your dataset.
-# The `ggmap` or `tidygeocoder` packages in R are excellent for this.
-# You will need to geocode the city names to get their coordinates.
-#
-# Placeholder:
-# library(tidygeocoder)
-# lat_longs <- geocode(data5_clustered, city = city)
+**NOTE:** The following chunk requires a working internet connection. If the script hangs, ensure `run_spatial_analysis` is `FALSE` in the `setup-spatial-toggle` chunk.
+
+```{r spatial-analysis, eval=run_spatial_analysis, fig.width=10, fig.height=7, warning=FALSE, message=FALSE}
+# GOAL: Geocode cities and create a map of the US with cities colored by cluster.
+
+print("Attempting to geocode cities. This may take a moment...")
+
+geocoded_data <- tryCatch({
+  data_with_clusters %>%
+    geocode(city = city, method = 'osm', verbose = FALSE)
+}, error = function(e) {
+  warning(paste("Geocoding failed with an error:", e$message), immediate. = TRUE)
+  return(NULL) # Return NULL on error
+})
+
+if (!is.null(geocoded_data) && all(c("lat", "long") %in% colnames(geocoded_data)) && sum(!is.na(geocoded_data$lat)) > 0) {
+  print("Geocoding successful. Generating map...")
+  
+  us_map <- map_data("state")
+
+  ggplot() +
+    geom_polygon(data = us_map, aes(x = long, y = lat, group = group), fill = "grey80", color = "white") +
+    geom_point(data = geocoded_data, aes(x = long, y = lat, color = as.factor(cluster)), size = 3, alpha = 0.8) +
+    coord_map("albers", lat0 = 39, lat1 = 45) +
+    labs(
+      title = "Geographic Distribution of City Clusters",
+      subtitle = "Cities grouped by pollution and demographic profiles",
+      color = "City Cluster"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.title = element_blank(),
+      axis.text = element_blank(),
+      axis.ticks = element_blank(),
+      panel.grid = element_blank()
+    )
+} else {
+  print("Geocoding failed or returned no valid coordinates. Cannot generate map.")
+}
 ```
-
-```{r mapping-clusters}
-# GOAL: Create a map of the US with cities colored by cluster.
-# Use a mapping library like `leaflet` or `ggplot2` with `maps`.
-#
-# Placeholder using ggplot2:
-# library(ggplot2)
-# library(maps)
-# us_map <- map_data("state")
-# ggplot() +
-#   geom_polygon(data = us_map, aes(x = long, y = lat, group = group), fill = "grey80", color = "white") +
-#   geom_point(data = lat_longs, aes(x = longitude, y = latitude, color = as.factor(cluster)), size = 3) +
-#   coord_map("albers", lat0 = 39, lat1 = 45) +
-#   theme_minimal() +
-#   labs(title = "Geographic Distribution of City Clusters", color = "Cluster")
-```
-
 ## Discussion of Spatial Patterns
 
 
