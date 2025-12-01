@@ -74,8 +74,8 @@ Before applying multivariate methods, a preliminary analysis is essential to und
 ```{r data-loading, echo=FALSE}
 # The data is loaded from the folder data/data5.csv
 
-data5 <- read.csv("./data/data_5.csv", header = TRUE)
-#data5 <- read.csv("data_5.csv", header = TRUE)
+#data5 <- read.csv("./data/data_5.csv", header = TRUE)
+data5 <- read.csv("data_5.csv", header = TRUE)
 head(data5)
 ```
 
@@ -331,7 +331,7 @@ The biplot provides a visual confirmation of our interpretations and shows how c
 So, if we did a graphic for the first 3 PCs:
 
 *This 3D graphic is not visible in the pfd format.* 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 library(plotly)
 
 # Supondo que você tenha feito o PCA:
@@ -391,7 +391,7 @@ cor_data5
 *Secondly*,  to perform and obtain the *dendograms* we need to determine the distances (to cluster the groups).
 ```{r}
 #remove columns we don't need for the analysis, based on the PCA (in this case, the column "wind")
-data5_v <- data5_variables
+data5_v <- scale(data5_variables)
 
 #dissimilarity matrix : squared euclidean distance
 dist_data5 <- dist(data5_v, method = "euclidean")
@@ -431,9 +431,9 @@ plot(dend1_s, main = "Single Linkage - standardized data")
 ```
 
 ```{r}
-plot(dend1_s, main="Single Linkage - 4 clusters")
+plot(dend1_s, main="Single Linkage - 3 clusters")
 # k =  clusters considered
-rect.hclust(hc1_s, k=5, border = 2:4)
+rect.hclust(hc1_s, k=3, border = 2:4)
 ```
 
 Now we can do the *Cophenetic Coefficient*.
@@ -448,6 +448,107 @@ coph_1_s <- cophenetic(clust_single_s)
 #Cophenetic coefficient
 cor(dist_data5, coph_1_s)
 ```
+
+
+### COMPLETE LINKAGE
+
+
+```{r}
+hc2_s <- agnes(dist_data5, method = "complete")
+hc2_s$merge
+```
+
+```{r}
+hc2_s$order
+```
+
+```{r}
+hc2_s$ac
+```
+The AC value is high.
+
+```{r}
+#Dendrogram
+dend2_s <- as.dendrogram(hc2_s)
+#labels(dend1_s) <- data5$city
+order_in_dend2 <- order.dendrogram(dend2_s)
+labels(dend2_s) <- data5$city[order_in_dend2]
+plot(dend2_s, main = "Complete Linkage - standardized data")
+```
+
+```{r}
+plot(dend1_s, main="Complete Linkage - 3 clusters")
+# k =  clusters considered
+rect.hclust(hc2_s, k=3, border = 2:4)
+```
+
+Now we can do the *Cophenetic Coefficient*.
+
+```{r}
+#Cophenetic Coefficient
+clust_complete_s <- hclust(dist_data5, method="complete")
+
+#Cophenetic matrix (delta matrix - obtained based on the dendogram)
+coph_2_s <- cophenetic(clust_complete_s)
+
+#Cophenetic coefficient
+cor(dist_data5, coph_2_s)
+```
+
+It's a smaller valye than the *Single Linkage* one.
+
+
+### WARD LINKAGE
+
+```{r}
+hc3_s <- agnes(dist_data5, method = "ward")
+hc3_s$merge
+```
+
+```{r}
+hc3_s$order
+```
+
+```{r}
+hc3_s$ac
+```
+The AC value is high.
+
+```{r}
+#Dendrogram
+dend3_s <- as.dendrogram(hc3_s)
+#labels(dend1_s) <- data5$city
+order_in_dend3 <- order.dendrogram(dend3_s)
+labels(dend3_s) <- data5$city[order_in_dend3]
+plot(dend3_s, main = "Ward Linkage - standardized data")
+```
+
+```{r}
+plot(dend3_s, main="Ward Linkage - 5 clusters")
+# k =  clusters considered
+rect.hclust(hc1_s, k=5, border = 2:4)
+```
+
+Now we can do the *Cophenetic Coefficient*.
+
+```{r}
+#Cophenetic Coefficient
+clust_ward_s <- hclust(dist_data5, method="ward")
+
+#Cophenetic matrix (delta matrix - obtained based on the dendogram)
+coph_3_s <- cophenetic(clust_ward_s)
+
+#Cophenetic coefficient
+cor(dist_data5, coph_3_s)
+```
+
+**RESULT** The ward method has a much lower coefficient than the other ones.
+
+
+
+
+
+
 
 ## Cluster Analysis with the PCA Data
 
@@ -491,6 +592,9 @@ hcpca1 <- agnes(dist_pca,method="single") #agnes Computes agglomerative hierarch
 ```{r}
 hcpca1$merge
 ```
+
+
+
 Visualize the order in which the objects, clustered, appear in the dendrogram.
 
 ```{r}
@@ -518,6 +622,9 @@ dend1_pca
 plot(dend1_pca,main="Single Linkage for PCA data (3 clusters)")
 rect.hclust(hcpca1,k=3,border=2:4)
 ```
+
+
+
 With another function to perform clustering :
 
 **Cophenetic coefficient** (it gives us the relation between the distance matrix in the beginning and the one obtained from the dendogram) :
@@ -531,6 +638,10 @@ The cophenetic coefficient has a quite high value.
 ```{r}
 plot(clust_pca,horiz=FALSE,main="Single Linkage method")
 ```
+
+
+
+
 Considering 4 clusters:
 ```{r}
 order_in_dend <- order.dendrogram(dend1_pca)
@@ -538,7 +649,9 @@ labels(dend1_pca) <- data5$city[order_in_dend]
 plot(dend1_pca,main="Single Linkage for PCA data (4 clsuters)")
 rect.hclust(hcpca1,k=4,border=2:4)
 ```
-#Comparing with the Complete linkage method:
+
+
+#### Comparing with the Complete linkage method:
 
 ```{r}
 hcpca2 <- agnes(pca_cluster,method="complete")
