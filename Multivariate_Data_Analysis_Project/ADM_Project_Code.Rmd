@@ -111,6 +111,100 @@ head(data5_variables)
 # Calculate and display summary statistics for each variable.
 summary(data5_variables)
 ```
+```{r}
+#graphical representation of summary values
+num_data <- data5_variables[sapply(data5_variables, is.numeric)]
+
+library(ggplot2)
+
+for (var in names(num_data)) {
+  
+  x <- num_data[[var]]
+  
+  s <- summary(x)
+  summary_df <- data.frame(
+    Statistic = names(s),
+    Value = as.numeric(s)
+  )
+  
+  print(
+    ggplot(summary_df, aes(x = Statistic, y = Value)) +
+      geom_col(fill = "steelblue") +
+      labs(title = paste("Summary of", var),
+           x = "Statistic",
+           y = "Value") +
+      theme_bw()
+  )
+}
+```
+
+```{r}
+#so2 Distribution by City
+ggplot(data5, aes(x = city, y = so2)) +
+  geom_boxplot(fill = "lightgreen") +
+  theme_minimal() +
+  labs(title = "so2 Distribution by City", x = "City", y = "so2") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+#correlation heatmap of the numeric variables
+
+install.packages(c("corrplot", "reshape2"))
+library(corrplot)
+library(reshape2)
+
+corr_matrix <- cor(data5_variables, use = "complete.obs")  # handles missing values
+
+# Basic correlation heatmap
+corrplot(corr_matrix, method = "color", 
+         addCoef.col = "black",   # show correlation coefficients
+         tl.col = "black",        # axis labels color
+         number.cex = 0.8,       # font size for coefficients
+         tl.cex = 0.8,            # font size for labels
+         title = "Correlation Heatmap for the variables",
+         mar = c(0,0,1,0))
+```
+```{r}
+#correlation heatmap between cities (according to the variables)
+
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+
+city_summary <- data5 %>%
+  group_by(city) %>%
+  summarise(across(where(is.numeric), mean, na.rm = TRUE))
+
+city_corr <- cor(t(city_summary %>% select(-city)))
+
+melted_corr <- melt(city_corr)
+colnames(melted_corr) <- c("City1", "City2", "Correlation")
+
+ggplot(melted_corr, aes(x = City1, y = City2, fill = Correlation)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(Correlation, 2)), color = "black", size = 2) +  # smaller text
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", 
+                       midpoint = 0, limit = c(0.5, 1), space = "Lab") +  # limit scale
+  theme_minimal() +
+  labs(title = "City-to-City Correlation Heatmap", x = "", y = "") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=6),  # smaller x labels
+        axis.text.y = element_text(size=6),
+        plot.title = element_text(hjust = 0.5, size = 14))
+
+
+
+```
+```{r}
+#relationship between pop and manuf
+ggplot(data5, aes(x = pop, y = manuf)) +
+  geom_point(color = "tomato") +
+  theme_minimal() +
+  labs(title = "pop vs manuf", x = "Population", y = "manuf")
+ggplot(data5, aes(x = pop, y = manuf, color = pop)) +
+  geom_point(size = 3, alpha = 0.7) +
+  theme_minimal()
+```
 
 
 We identify that `manuf` and `pop` have a mean significantly larger than the median. For `manuf`, it was found that it has a mean of 463.1 and a median of 347. For `pop`, the results were 608 to 515 respectively.
