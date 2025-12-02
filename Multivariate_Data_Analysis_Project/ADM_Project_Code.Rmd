@@ -75,7 +75,7 @@ Before applying multivariate methods, a preliminary analysis is essential to und
 # --- ANALYSIS CONTROL ---
 # Set this to TRUE if you have a stable internet connection to generate the city map.
 # If the script gets stuck on the geocoding step, set this to FALSE and re-run.
-run_spatial_analysis <- TRUE
+run_spatial_analysis <- FALSE
 ```
 
 ```{r data-loading, echo=FALSE}
@@ -111,6 +111,7 @@ head(data5_variables)
 # Calculate and display summary statistics for each variable.
 summary(data5_variables)
 ```
+
 
 We identify that `manuf` and `pop` have a mean significantly larger than the median. For `manuf`, it was found that it has a mean of 463.1 and a median of 347. For `pop`, the results were 608 to 515 respectively.
 Furthermore, the maximum values (3344, 3369) are in order of magnitude greater than the 75th percentile (462, 717) for both variables.
@@ -153,6 +154,22 @@ pairs(data5_variables, main="Pairs Plot Air Pollution Data")
 # 1st) Calculate and display the correlation matrix.
 cor_data5 <- cor(data5_variables)
 cor_data5
+```
+
+
+```{r}
+library(GGally)
+
+p <- ggpairs(
+  data5_variables,
+  title = "Pairs Plot : Air Pollution Data",
+  upper = list(continuous = wrap("cor", size = 3, color="darkblue")),
+  lower = list(continuous = wrap("points", alpha = 0.6, size=1.5, color="darkred")),
+  diag = list(continuous = wrap("densityDiag", alpha=0.5, fill="skyblue"))
+)
+
+ggsave("plots/pairs_plot.png", plot = p, width = 10, height = 8, dpi = 300)
+
 ```
 
 By looking at the plot and the correlation values between the variables we can observe that the population size and the number of manufacturing enterprises employing 20 or more workers is strongly correlated (0.955). We can see that the most populated cities in this study (looking at the initial data, data5), employ more people.
@@ -228,8 +245,39 @@ ggplot(scree_data, aes(x = component, y = variance_explained)) +
   ylim(0,1) +
   labs(title = "Scree Plot", x = "Principal Component", y = "Proportion of Variance Explained") +
   theme_minimal()
+
 ```
 
+### Criteria 3 => Scree Plot Enhance with Kaizer crteria.
+
+```{r enhanced-screeplot, echo=FALSE, message=FALSE, warning=FALSE}
+library(ggplot2)
+
+
+eigenvalues <- eigen_data5$values
+scree_data <- data.frame(
+  component = 1:length(eigenvalues),
+  variance_explained = eigenvalues / sum(eigenvalues)
+)
+
+kaiser_cutoff <- 1 / length(eigenvalues)
+
+ggplot(scree_data, aes(x = component, y = variance_explained)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_point(size = 3, color = "darkred") +
+  geom_text(aes(label = round(variance_explained, 2)), vjust = -1.2, size = 3) +
+  geom_hline(yintercept = kaiser_cutoff, linetype = "dashed", color = "red") +
+  labs(
+    title = "Scree Plot with Kaiser Criterion",
+    x = "Principal Component",
+    y = "Proportion of Variance Explained"
+  ) +
+  scale_x_continuous(breaks = 1:length(eigenvalues)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 1)) +
+  theme_classic(base_size = 14)
+ggsave("plots/scree_plot.png", width = 8, height = 5, dpi = 300)
+
+```
 
 *Analyzing the results*, in this plot, the elbow point would be between PC2 and PC3. However, if we consider the other criterias we have applied before, it would be best to use 3 PCs, having approximately 81% of the variance explained.
 
@@ -813,7 +861,7 @@ geocoded_data <- tryCatch({
 
 if (!is.null(geocoded_data) && all(c("lat", "long") %in% colnames(geocoded_data)) && sum(!is.na(geocoded_data$lat)) > 0) {
   print("Geocoding successful. Generating map...")
-  
+
   us_map <- map_data("state")
 
   ggplot() +
