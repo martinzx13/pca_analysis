@@ -308,6 +308,59 @@ We only need to look into the the 3 first PCs, since we determined we are going 
 
 To verify that we made the right decisions:
 
+# Tables to summarize the loadings
+
+```{r}
+library(gridExtra)
+library(grid)
+
+# Crear tabla de cargas
+loadings_table <- data.frame(
+  Variable = c("so2", "temp", "manuf", "pop", "wind", "precip", "days"),
+  PC1 = c(0.8088365434, -0.5208984175, 0.8938494595, 0.8053502866, 0.4127189331, 0.0003093839, 0.4297383099),
+  PC2 = c(0.10400859, -0.10900423, -0.27778184, -0.34679989, 0.06821718, 0.76968782, 0.83374415),
+  PC3 = c(0.01694887, 0.79975860, 0.31553891, 0.40728458, -0.36763244, 0.58113903, -0.12942257)
+)
+
+# Crear tabla visual
+loadings_plot <- tableGrob(
+  loadings_table,
+  rows = NULL,
+  theme = ttheme_default(
+    core = list(fg_params = list(hjust = 0.5, x = 0.5)),
+    colhead = list(fg_params = list(fontface = "bold", hjust = 0.5))
+  )
+)
+
+# # Exportar como PNG
+# if(!dir.exists("./Multivariate_Data_Analysis_Project/plots")) dir.create("./Multivariate_Data_Analysis_Project/plots")
+# png("./Multivariate_Data_Analysis_Project/plots/pca_loadings_table.png", width = 900, height = 400)
+grid.draw(loadings_plot)
+# dev.off()
+
+```
+# Style 2
+```{r}
+
+library(knitr)
+
+library(kableExtra)
+
+loadings_table <- data.frame(
+  Variable = c("so2", "temp", "manuf", "pop", "wind", "precip", "days"),
+  PC1 = c(0.8088365434, -0.5208984175, 0.8938494595, 0.8053502866, 0.4127189331, 0.0003093839, 0.4297383099),
+  PC2 = c(0.10400859, -0.10900423, -0.27778184, -0.34679989, 0.06821718, 0.76968782, 0.83374415),
+  PC3 = c(0.01694887, 0.79975860, 0.31553891, 0.40728458, -0.36763244, 0.58113903, -0.12942257)
+)
+
+kable(loadings_table, format = "html", digits = 4, align = "c",
+      col.names = c("Variable", "PC1", "PC2", "PC3")) %>%
+  kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover"))
+
+```
+
+
+
 Let's prove that with:
 
 ```{r}
