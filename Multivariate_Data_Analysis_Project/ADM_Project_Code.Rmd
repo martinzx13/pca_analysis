@@ -314,7 +314,7 @@ To verify that we made the right decisions:
 library(gridExtra)
 library(grid)
 
-# Crear tabla de cargas
+# Create table of loadings for the 3 PCs
 loadings_table <- data.frame(
   Variable = c("so2", "temp", "manuf", "pop", "wind", "precip", "days"),
   PC1 = c(0.8088365434, -0.5208984175, 0.8938494595, 0.8053502866, 0.4127189331, 0.0003093839, 0.4297383099),
@@ -322,7 +322,7 @@ loadings_table <- data.frame(
   PC3 = c(0.01694887, 0.79975860, 0.31553891, 0.40728458, -0.36763244, 0.58113903, -0.12942257)
 )
 
-# Crear tabla visual
+# Create a visual table.
 loadings_plot <- tableGrob(
   loadings_table,
   rows = NULL,
@@ -332,14 +332,14 @@ loadings_plot <- tableGrob(
   )
 )
 
-# # Exportar como PNG
-# if(!dir.exists("./Multivariate_Data_Analysis_Project/plots")) dir.create("./Multivariate_Data_Analysis_Project/plots")
-# png("./Multivariate_Data_Analysis_Project/plots/pca_loadings_table.png", width = 900, height = 400)
+# # Export as png
+if(!dir.exists("./plots")) dir.create("./plots")
+png("./plots/pca_loadings_table.png", width = 900, height = 400)
 grid.draw(loadings_plot)
 # dev.off()
 
 ```
-# Style 2
+# Style 2 of table.
 ```{r}
 
 library(knitr)
