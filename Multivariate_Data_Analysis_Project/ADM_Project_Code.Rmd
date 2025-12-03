@@ -770,6 +770,43 @@ plot_ly(pca_scores,
 
 ```
 
+## Interactive 3D Scatter Plot (Another Version)
+
+A 2D biplot can only show two components at a time. Since our first three components capture over 80% of the variance, an interactive 3D scatter plot is an effective way to visualize the relationships between cities across these dimensions simultaneously. Compare this implementation with your previous attempt to understand how to leverage existing PCA results and correctly label axes.
+
+```{r 3d-pca-plot-v2, message=FALSE, warning=FALSE}
+library(plotly)
+
+# 1. Extract the scores and city names from our existing PCA results
+scores_df <- as.data.frame(pca_results$scores)
+scores_df$city <- data5$city
+
+# 2. Get the proportion of variance explained for axis labels
+# This comes from the summary of our pca_results object
+pca_summary <- summary(pca_results)
+variance_explained <- pca_summary$sdev^2 / sum(pca_summary$sdev^2)
+
+pc1_label <- paste0("PC1 (", round(variance_explained[1] * 100, 1), "%)")
+pc2_label <- paste0("PC2 (", round(variance_explained[2] * 100, 1), "%)")
+pc3_label <- paste0("PC3 (", round(variance_explained[3] * 100, 1), "%)")
+
+# 3. Create the interactive 3D plot
+plot_ly(data = scores_df,
+        x = ~Comp.1, y = ~Comp.2, z = ~Comp.3,
+        text = ~city, # Use city names for hover text
+        type = 'scatter3d',
+        mode = 'markers',
+        marker = list(size = 5, color = ~Comp.1, colorscale = 'Viridis', showscale = TRUE, colorbar = list(title = pc1_label))) %>%
+  layout(
+    title = "Interactive 3D PCA Scatter Plot of US Cities (Improved)",
+    scene = list(
+      xaxis = list(title = pc1_label),
+      yaxis = list(title = pc2_label),
+      zaxis = list(title = pc3_label)
+    )
+  )
+```
+
 
 # Cluster Analysis
 
