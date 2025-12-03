@@ -118,15 +118,15 @@ num_data <- data5_variables[sapply(data5_variables, is.numeric)]
 library(ggplot2)
 
 for (var in names(num_data)) {
-  
+
   x <- num_data[[var]]
-  
+
   s <- summary(x)
   summary_df <- data.frame(
     Statistic = names(s),
     Value = as.numeric(s)
   )
-  
+
   print(
     ggplot(summary_df, aes(x = Statistic, y = Value)) +
       geom_col(fill = "steelblue") +
@@ -157,7 +157,7 @@ library(reshape2)
 corr_matrix <- cor(data5_variables, use = "complete.obs")  # handles missing values
 
 # Basic correlation heatmap
-corrplot(corr_matrix, method = "color", 
+corrplot(corr_matrix, method = "color",
          addCoef.col = "black",   # show correlation coefficients
          tl.col = "black",        # axis labels color
          number.cex = 0.8,       # font size for coefficients
@@ -184,7 +184,7 @@ colnames(melted_corr) <- c("City1", "City2", "Correlation")
 ggplot(melted_corr, aes(x = City1, y = City2, fill = Correlation)) +
   geom_tile(color = "white") +
   geom_text(aes(label = round(Correlation, 2)), color = "black", size = 2) +  # smaller text
-  scale_fill_gradient2(low = "blue", mid = "white", high = "red", 
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red",
                        midpoint = 0, limit = c(0.5, 1), space = "Lab") +  # limit scale
   theme_minimal() +
   labs(title = "City-to-City Correlation Heatmap", x = "", y = "") +
@@ -261,7 +261,7 @@ p <- ggpairs(
   lower = list(continuous = wrap("points", alpha = 0.6, size=1.5, color="darkred")),
   diag = list(continuous = wrap("densityDiag", alpha=0.5, fill="skyblue"))
 )
-
+p
 ggsave("plots/pairs_plot.png", plot = p, width = 10, height = 8, dpi = 300)
 
 ```
@@ -495,9 +495,11 @@ scores$city <- data5$city
 
 The next 3 graphics are on the first 3 PCs:
 
-### PC1 vs PC2
+# Biplots.
 
-```{r biplot12}
+## PC1 vs PC2
+
+```{r biplot12, echo=FALSE}
 library(ggbiplot)
 ggbiplot(pca_results, choices = c(1,2),labels = data5$city, ellipse = TRUE, circle = TRUE) +
   theme_minimal() +
@@ -505,9 +507,9 @@ ggbiplot(pca_results, choices = c(1,2),labels = data5$city, ellipse = TRUE, circ
        subtitle = "PC1: Industrialization/Urbanization, PC2: Climate (Cold/Wet vs. Warm/Dry)")
 ```
 
-### PC2 vs PC3
+## PC2 vs PC3
 
-```{r biplot23}
+```{r biplot23, echo=FALSE}
 library(ggbiplot)
 ggbiplot(pca_results, choices = c(2,3),labels = data5$city, ellipse = TRUE, circle = TRUE) +
   theme_minimal() +
@@ -515,9 +517,9 @@ ggbiplot(pca_results, choices = c(2,3),labels = data5$city, ellipse = TRUE, circ
        subtitle = "PC2: Climate (Cold/Wet vs. Warm/Dry), PC3: Temperature")
 ```
 
-### PC1 vs PC3
+## PC1 vs PC3
 
-```{r biplot13}
+```{r biplot13, echo=FALSE}
 library(ggbiplot)
 ggbiplot(pca_results, choices = c(1,3),labels = data5$city, ellipse = TRUE, circle = TRUE) +
   theme_minimal() +
@@ -526,7 +528,208 @@ ggbiplot(pca_results, choices = c(1,3),labels = data5$city, ellipse = TRUE, circ
 ```
 
 
+## Enhance Option 1 :  PC1 vs PC2.
+```{r option1, echo=FALSE}
+library(FactoMineR)
+library(factoextra)
+library(ggplot2)
+library(ggrepel)
 
+# Prepare data (exclude city column)
+pca_input <- data5[, -which(names(data5) == "city")]
+
+# Run PCA
+pca_result <- PCA(pca_input, scale.unit = TRUE, graph = FALSE)
+
+# Scores (coordinates of cities)
+scores <- as.data.frame(pca_result$ind$coord)
+scores$city <- data5$city
+
+# Loadings (variable contributions)
+loadings <- as.data.frame(pca_result$var$coord)
+loadings$var <- rownames(loadings)
+
+scale_factor <- 3  # You can adjust this (try 2–5 depending on spread)
+loadings_scaled <- loadings
+loadings_scaled$Dim.1 <- loadings$Dim.1 * scale_factor
+loadings_scaled$Dim.2 <- loadings$Dim.2 * scale_factor
+
+ggplot(scores, aes(x = Dim.1, y = Dim.2)) +
+  geom_point(color = "steelblue", size = 3) +
+  geom_text_repel(aes(label = city), size = 3, max.overlaps = 30) +
+
+  # Scaled variable vectors
+  geom_segment(data = loadings_scaled,
+               aes(x = 0, y = 0, xend = Dim.1, yend = Dim.2),
+               arrow = arrow(length = unit(0.25, "cm")),
+               color = "red", size = 1) +
+  geom_text_repel(data = loadings_scaled,
+                  aes(x = Dim.1, y = Dim.2, label = var),
+                  color = "red", size = 4) +
+
+  labs(title = "PCA Biplot of US Cities",
+       subtitle = "PC1: Industrialization/Urbanization, PC2: Climate Gradient",
+       x = paste0("PC1 (", round(pca_result$eig[1,2], 2), "%)"),
+       y = paste0("PC2 (", round(pca_result$eig[2,2], 2), "%)")) +
+  theme_classic(base_size = 14)
+
+
+aes(x = Dim.2, y = Dim.3)   # for PC2 vs PC3
+aes(x = Dim.1, y = Dim.3)   # for PC1 vs PC3
+
+```
+
+## Option 2.
+```{r pca-biplot-ggfortify, message=FALSE, warning=FALSE, echo=FALSE}
+library(ggfortify)
+autoplot(pca_results,
+           data = data5, # Use original data for labels
+           loadings = TRUE, loadings.colour = 'red',
+           loadings.label = TRUE, loadings.label.size = 3,
+           label = TRUE, label.size = 2.5, shape = FALSE) +
+    labs(title = "PCA Biplot of US Cities",
+         subtitle = "Principal Components and Original Variable Loadings") +
+    theme_minimal()
+```
+
+## Enhance Option 1 PC2 vs PC3.
+
+## Option 1
+
+```{r pc2-pc3, echo=FALSE}
+library(FactoMineR)
+library(factoextra)
+library(ggplot2)
+library(ggrepel)
+
+# Prepare data (exclude city column)
+pca_input <- data5[, -which(names(data5) == "city")]
+
+# Run PCA
+pca_result <- PCA(pca_input, scale.unit = TRUE, graph = FALSE)
+
+# Scores (coordinates of cities)
+scores <- as.data.frame(pca_result$ind$coord)
+scores$city <- data5$city
+
+# Loadings (variable contributions)
+loadings <- as.data.frame(pca_result$var$coord)
+loadings$var <- rownames(loadings)
+
+scale_factor <- 3  # You can adjust this (try 2–5 depending on spread)
+loadings_scaled <- loadings
+loadings_scaled$Dim.2 <- loadings$Dim.2 * scale_factor
+loadings_scaled$Dim.3 <- loadings$Dim.3 * scale_factor
+
+ggplot(scores, aes(x = Dim.2, y = Dim.3)) +
+  geom_point(color = "steelblue", size = 3) +
+  geom_text_repel(aes(label = city), size = 3, max.overlaps = 30) +
+
+  # Scaled variable vectors
+  geom_segment(data = loadings_scaled,
+               aes(x = 0, y = 0, xend = Dim.2, yend = Dim.3),
+               arrow = arrow(length = unit(0.25, "cm")),
+               color = "red", size = 1) +
+  geom_text_repel(data = loadings_scaled,
+                  aes(x = Dim.2, y = Dim.3, label = var),
+                  color = "red", size = 4) +
+
+  labs(title = "PCA Biplot of US Cities",
+       subtitle = "PC2: Climate (Cold/Wet vs. Warm/Dry), PC3: Temperature",
+       x = paste0("PC2 (", round(pca_result$eig[2,2], 2), "%)"),
+       y = paste0("PC3 (", round(pca_result$eig[3,2], 2), "%)")) +
+  theme_classic(base_size = 14)
+
+
+aes(x = Dim.1, y = Dim.3)   # for PC2 vs PC3
+aes(x = Dim.2, y = Dim.3)   # for PC1 vs PC3
+
+```
+## Option 2
+```{r pca-biplot2, message=FALSE, warning=FALSE, echo=FALSE}
+library(ggfortify)
+autoplot(pca_results,
+           data = data5, # Use original data for labels
+           x = 2, y = 3, # <-- specify PC2 vs PC3
+           loadings = TRUE, loadings.colour = 'red',
+           loadings.label = TRUE, loadings.label.size = 3,
+           label = TRUE, label.size = 2.5, shape = FALSE) +
+    labs(title = "PCA Biplot of US Cities",
+         subtitle = "PC2: Climate (Cold/Wet vs. Warm/Dry), PC3: Temperature") +
+    theme_minimal()
+```
+
+## Enhance Option 1 PC1 vs PC3.
+
+## Option 1.
+
+```{r pca-biplot3, message=FALSE, warning=FALSE, echo=FALSE}
+library(ggfortify)
+autoplot(pca_results,
+           data = data5, # Use original data for labels
+           x = 1, y = 3, # <-- specify PC2 vs PC3
+           loadings = TRUE, loadings.colour = 'red',
+           loadings.label = TRUE, loadings.label.size = 3,
+           label = TRUE, label.size = 2.5, shape = FALSE) +
+    labs(title = "PCA Biplot of US Cities",
+       subtitle = "PC1: Industrialization/Urbanization, PC3: Temperature") +
+    theme_minimal()
+```
+
+## OPtion 2.
+
+```{r , echo=FALSE}
+library(FactoMineR)
+library(factoextra)
+library(ggplot2)
+library(ggrepel)
+
+# Prepare data (exclude city column)
+pca_input <- data5[, -which(names(data5) == "city")]
+
+# Run PCA
+pca_result <- PCA(pca_input, scale.unit = TRUE, graph = FALSE)
+
+# Scores (coordinates of cities)
+scores <- as.data.frame(pca_result$ind$coord)
+scores$city <- data5$city
+
+# Loadings (variable contributions)
+loadings <- as.data.frame(pca_result$var$coord)
+loadings$var <- rownames(loadings)
+
+scale_factor <- 3  # You can adjust this (try 2–5 depending on spread)
+loadings_scaled <- loadings
+loadings_scaled$Dim.1 <- loadings$Dim.1 * scale_factor
+loadings_scaled$Dim.3 <- loadings$Dim.3 * scale_factor
+
+ggplot(scores, aes(x = Dim.1, y = Dim.3)) +
+  geom_point(color = "steelblue", size = 3) +
+  geom_text_repel(aes(label = city), size = 3, max.overlaps = 30) +
+
+  # Scaled variable vectors
+  geom_segment(data = loadings_scaled,
+               aes(x = 0, y = 0, xend = Dim.1, yend = Dim.3),
+               arrow = arrow(length = unit(0.25, "cm")),
+               color = "red", size = 1) +
+  geom_text_repel(data = loadings_scaled,
+                  aes(x = Dim.1, y = Dim.3, label = var),
+                  color = "red", size = 4) +
+
+  labs(title = "PCA Biplot of US Cities",
+       subtitle = "PC1: Industrialization/Urbanization, PC3: Temperature",
+       x = paste0("PC1 (", round(pca_result$eig[1,2], 2), "%)"),
+       y = paste0("PC3 (", round(pca_result$eig[3,2], 2), "%)")) +
+  theme_classic(base_size = 14)
+
+
+aes(x = Dim.3, y = Dim.3)   # for PC2 vs PC3
+aes(x = Dim.1, y = Dim.3)   # for PC1 vs PC3
+
+```
+
+
+## 3D plots.
 
 The biplot provides a visual confirmation of our interpretations and shows how cities relate to these new axes.
 
@@ -974,7 +1177,7 @@ city_clusters <- cutree(hcpca3, k = num_clusters)
 
 # 2. Add the cluster assignments to the original data frame.
 data_with_clusters <- data5 %>%
-  mutate(cluster = city_clusters)
+  mutate(cluster = as.factor(city_clusters))
 
 # 3. Calculate the mean of the original variables for each cluster.
 # THIS IS THE CRITICAL INTERPRETATION STEP.
@@ -985,6 +1188,35 @@ cluster_means <- data_with_clusters %>%
 # 4. Print the cluster profiles. You MUST interpret this table in your report.
 print("Cluster Profiles (Mean Values):")
 print(cluster_means)
+```
+
+### Synthesis: Visualizing Clusters on PCA Biplot
+
+Now that the clusters are defined, we visualize them on the PCA biplot. This synthesizes the two analyses, showing how the identified city groupings relate to the primary axes of variation.
+
+```{r pca-biplot-with-clusters, message=FALSE, warning=FALSE}
+install.packages("FactoMineR")
+install.packages("factoextra")
+library(FactoMineR)
+library(factoextra)
+
+# 1. Run PCA using FactoMineR for its visualization capabilities.
+pca_fm_results <- PCA(data5_variables, scale.unit = TRUE, ncp = 5, graph = FALSE)
+
+# 2. Create the biplot, using the 'cluster' column for the habillage.
+# The data_with_clusters dataframe now contains our cluster assignments.
+fviz_pca_biplot(pca_fm_results,
+                repel = TRUE,
+                col.var = "darkblue", # Variables color
+                col.ind = "#696969",  # Individuals color
+                label = "var",
+                habillage = data_with_clusters$cluster, # Color individuals by cluster
+                addEllipses = TRUE,
+                ellipse.type = "confidence",
+                legend.title = "Clusters",
+                ggtheme = theme_minimal()) +
+  labs(title = "PCA Biplot with City Clusters",
+       subtitle = "Clusters determined by Ward's method on PC scores")
 ```
 
 # Spatial Analysis & Comparison
