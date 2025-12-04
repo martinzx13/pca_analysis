@@ -38,6 +38,13 @@ output:
 ---
 <div style="text-align: justify;">
 
+```{r}
+# 2. Create folder if it doesn't exist
+out_dir <- file.path("./plots")   # change base path if needed
+
+```
+
+
 # Abstract
 
 Air pollution in urban environments is a significant public health concern.
@@ -572,6 +579,7 @@ ggplot(scores, aes(x = Dim.1, y = Dim.2)) +
        x = paste0("PC1 (", round(pca_result$eig[1,2], 2), "%)"),
        y = paste0("PC2 (", round(pca_result$eig[2,2], 2), "%)")) +
   theme_classic(base_size = 14)
+ggsave("plots/biplot_pc1_pc2_plot.png", width = 8, height = 5, dpi = 300)
 
 
 aes(x = Dim.2, y = Dim.3)   # for PC2 vs PC3
@@ -640,6 +648,7 @@ ggplot(scores, aes(x = Dim.2, y = Dim.3)) +
        y = paste0("PC3 (", round(pca_result$eig[3,2], 2), "%)")) +
   theme_classic(base_size = 14)
 
+ggsave("plots/biplot_pc2_pc3_plot.png", width = 8, height = 5, dpi = 300)
 
 aes(x = Dim.1, y = Dim.3)   # for PC2 vs PC3
 aes(x = Dim.2, y = Dim.3)   # for PC1 vs PC3
@@ -722,9 +731,8 @@ ggplot(scores, aes(x = Dim.1, y = Dim.3)) +
        y = paste0("PC3 (", round(pca_result$eig[3,2], 2), "%)")) +
   theme_classic(base_size = 14)
 
+ggsave("plots/biplot_pc1_pc3_plot.png", width = 8, height = 5, dpi = 300)
 
-aes(x = Dim.3, y = Dim.3)   # for PC2 vs PC3
-aes(x = Dim.1, y = Dim.3)   # for PC1 vs PC3
 
 ```
 
