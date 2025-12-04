@@ -391,7 +391,7 @@ We need to have a correlation matrix between the variables and the PCs (the load
 ## Component Interpretation (Loadings)
 
 ```{r component matrix}
-# Correlation between original variables and the PCs (loadins)
+# Correlation between original variables and the PCs (loadings)
 
 component_matrix <- cor(data5_variables,pca_results$scores)
 component_matrix
@@ -846,15 +846,25 @@ cor_data5
 #remove columns we don't need for the analysis, based on the PCA (in this case, the column "wind")
 data5_v <- scale(data5_variables)
 
-#dissimilarity matrix : squared euclidean distance
-dist_data5 <- dist(data5_v, method = "euclidean")
+#dissimilarity matrix : Mahalanobis distance
+#dist_data5 <- dist(data5_v, method = "euclidean")
+install.packages("proxy")
+library(proxy)
+dist_data5 <- proxy::dist(data5_v, method = "Mahalanobis")
 
 dist_data5
 ```
-We used the *Squared Euclidean distance*.
+The dissimilarity matrix is calculated from the data matrix and it contains the values measuring the dissimilarity/similarity between the elements of each pair. 
+Euclidean distance should not be used when we have different variables measured in different units so, in our case we should use Mahalanobis distance, because, besides the different units, we have correlated variables in the correlation matrix, mainly manuf and pop. So, this method would solve our problem with different scales while also the effects of correlation between variables.
 
-To determine which values are going to be clustered, we need to look at the values that have the lowest distance between them.
-Based on the *dissimilarity matrix*, the pair with the lowest distance should be joint first.
+To determine the optimal number of clusters in a dendogram for hierarchical methods and for the original data, we used the silhouette width. The best value of k is the one with the largest average silhouette. 
+
+```{r}
+#non hierarchical, n da para usar. Silhoette da para usar.
+#library(factoextra)
+#fviz_nbclust(data5_v, hcut, method = "wss")
+```
+(Here we can see the elbow point at 3 clusters, or even 4 clusters, but we considered the optimal number of clusters k=3)
 
 **Let´s perform the Hierarchical Clustering**.
 
@@ -881,8 +891,9 @@ dend1_s <- as.dendrogram(hc1_s)
 order_in_dend <- order.dendrogram(dend1_s)
 labels(dend1_s) <- data5$city[order_in_dend]
 plot(dend1_s, main = "Single Linkage - standardized data")
+abline(h = 3, col = "red", lwd = 2)
 ```
-
+In the single linkage case, it is produced a chain effect, so the elbow method for this case isn't that reliable. We know that in a dendogram, the most similar objects get merged first and as we go up in the dendogram, less similar objects merge, represented by taller lines. Merging things that are not similar is not a good cluster, so in this case, the most part of the merges occur below height 2 and at height 3,  the lines get taller, so, we cut the dendogram from there to decide the optimal number of clusters - in this case, k=3.
 ```{r}
 plot(dend1_s, main="Single Linkage - 3 clusters")
 # k =  clusters considered
@@ -927,10 +938,11 @@ dend2_s <- as.dendrogram(hc2_s)
 order_in_dend2 <- order.dendrogram(dend2_s)
 labels(dend2_s) <- data5$city[order_in_dend2]
 plot(dend2_s, main = "Complete Linkage - standardized data")
+abline(h = 6, col = "red", lwd = 2)
 ```
 
 ```{r}
-plot(dend1_s, main="Complete Linkage - 3 clusters")
+plot(dend2_s, main="Complete Linkage - 4 clusters")
 # k =  clusters considered
 rect.hclust(hc2_s, k=3, border = 2:4)
 ```
@@ -948,7 +960,29 @@ coph_2_s <- cophenetic(clust_complete_s)
 cor(dist_data5, coph_2_s)
 ```
 
-It's a smaller valye than the *Single Linkage* one.
+It's a smaller value than the *Single Linkage* one.
+
+But using the silhouette method to determine the optimal number of clusters:
+```{r}
+# Define a range of clusters to test
+k_values <- 2:6
+
+for (k in k_values) {
+  clusters <- cutree(hc2_s, k = k)           # cluster assignments
+  sil <- silhouette(clusters, dist_data5)    # silhouette calculation
+  avg_sil <- mean(sil[, 3])                  # average silhouette width
+  cat("k =", k, "Average silhouette width =", round(avg_sil, 3), "\n")
+}
+```
+The k with highest average silhouette width, k=2, is the optimal number of clusters when using this method. 
+
+Considering 2 clusters:
+```{r}
+plot(dend2_s, main="Complete Linkage - 2 clusters")
+# k =  clusters considered
+rect.hclust(hc2_s, k=2, border = 2:4)
+```
+
 
 
 ### WARD LINKAGE
@@ -979,7 +1013,7 @@ plot(dend3_s, main = "Ward Linkage - standardized data")
 ```{r}
 plot(dend3_s, main="Ward Linkage - 5 clusters")
 # k =  clusters considered
-rect.hclust(hc1_s, k=5, border = 2:4)
+rect.hclust(hc3_s, k=5, border = 2:4)
 ```
 
 Now we can do the *Cophenetic Coefficient*.
@@ -994,11 +1028,35 @@ coph_3_s <- cophenetic(clust_ward_s)
 #Cophenetic coefficient
 cor(dist_data5, coph_3_s)
 ```
+Using the silhouette method to determine the optimal number of clusters:
+
+```{r}
+library(cluster)
+
+# Choose the range of clusters to test
+k_values <- 2:6
+
+for (k in k_values) {
+  # Cut dendrogram to get cluster assignments
+  clusters <- cutree(hc3_s, k = k)
+  
+  # Compute silhouette
+  sil <- silhouette(clusters, dist_data5)
+  
+  # Average silhouette width
+  avg_sil <- mean(sil[, 3])
+  cat("k =", k, "Average silhouette width =", round(avg_sil, 3), "\n")
+}
+
+```
+k=6 is the optimal cluster number for the original data.
+```{r}
+plot(dend3_s, main="Ward Linkage - 6 clusters")
+# k =  clusters considered
+rect.hclust(hc3_s, k=6, border = 2:4)
+```
 
 **RESULT** The ward method has a much lower coefficient than the other ones.
-
-
-
 
 
 
@@ -1030,9 +1088,12 @@ pca_cluster2 <- pca_scores2[,1:4] ; pca_cluster2 #usar com labels das cidades
 
 ```{r}
 #dissimilarity matrix : squared euclidean distance
-dist_pca <- dist(pca_cluster,method="euclidean")
+library(proxy)
+dist_pca <- proxy::dist(pca_cluster,method="Mahalanobis")
 dist_pca
 ```
+
+
 **Let´s perform the Hierarchical Clustering for the PCA data**.
 
 ### SINGLE LINKAGE
@@ -1045,9 +1106,6 @@ hcpca1 <- agnes(dist_pca,method="single") #agnes Computes agglomerative hierarch
 ```{r}
 hcpca1$merge
 ```
-
-
-
 Visualize the order in which the objects, clustered, appear in the dendrogram.
 
 ```{r}
@@ -1063,7 +1121,7 @@ normalized lengths at which the clusters are formed.
 ```{r}
 hcpca1$ac
 ```
-As we can see, the ac is very high, meaning that the algorithm performed poorly in this case (far from 1).
+As we can see, the ac is high, meaning that the algorithm performed poorly in this case (far from 1).
 
 **Dendogram**
 
@@ -1076,10 +1134,6 @@ plot(dend1_pca,main="Single Linkage for PCA data (3 clusters)")
 rect.hclust(hcpca1,k=3,border=2:4)
 ```
 
-
-
-With another function to perform clustering :
-
 **Cophenetic coefficient** (it gives us the relation between the distance matrix in the beginning and the one obtained from the dendogram) :
 
 ```{r}
@@ -1091,10 +1145,6 @@ The cophenetic coefficient has a quite high value.
 ```{r}
 plot(clust_pca,horiz=FALSE,main="Single Linkage method")
 ```
-
-
-
-
 Considering 4 clusters:
 ```{r}
 order_in_dend <- order.dendrogram(dend1_pca)
@@ -1102,7 +1152,6 @@ labels(dend1_pca) <- data5$city[order_in_dend]
 plot(dend1_pca,main="Single Linkage for PCA data (4 clsuters)")
 rect.hclust(hcpca1,k=4,border=2:4)
 ```
-
 
 #### Comparing with the Complete linkage method:
 
@@ -1123,6 +1172,7 @@ dend2_pca
 plot(dend2_pca,main="Complete Linkage for PCA data (3 clusters)")
 rect.hclust(hcpca2,k=3,border=2:4)
 ```
+
 **Cophenetic coefficient**
 
 ```{r}
@@ -1140,14 +1190,40 @@ labels(dend2_pca) <- data5$city[order_in_dend]
 plot(dend2_pca,main="Complete Linkage for PCA data (4 clsuters)")
 rect.hclust(hcpca2,k=4,border=2:4)
 ```
+Finally, considering the number of optimal clusters given by the silhouette method: 
+```{r}
+library(cluster)
 
+# Choose the range of clusters to test
+k_values <- 2:6
+
+for (k in k_values) {
+  # Cut dendrogram to get cluster assignments
+  clusters <- cutree(dend2_pca, k = k)
+  
+  # Compute silhouette
+  sil <- silhouette(clusters, dist_data5)
+  
+  # Average silhouette width
+  avg_sil <- mean(sil[, 3])
+  cat("k =", k, "Average silhouette width =", round(avg_sil, 3), "\n")
+}
+```
+```{r}
+order_in_dend <- order.dendrogram(dend2_pca)
+labels(dend2_pca) <- data5$city[order_in_dend]
+plot(dend2_pca,main="Complete Linkage for PCA data - 2 clusters")
+rect.hclust(hcpca2,k=2,border=2:4)
+```
 
 The single method was better than the complete method.
 
 ```{r}
 par(mfrow=c(1,2))
-plot(clust_pca,horiz=FALSE,main="Single Linkage")
-plot(clust_pca2,horiz=FALSE,main="Complete Linkage")
+plot(dend1_pca)
+plot(dend2_pca)
+#plot(clust_pca,horiz=FALSE,main="Single Linkage")
+#plot(clust_pca2,horiz=FALSE,main="Complete Linkage")
 ```
 
 #Finally, comparing with the Ward method:
@@ -1180,7 +1256,7 @@ The cophenetic coefficient has a low value with this method of clustering.
 ```{r}
 plot(clust_pca3,horiz=FALSE,main="Ward method")
 ```
-Let´s consider 4 clusters, instead of 3 :
+Considering 4 clusters, instead of 3 :
 
 ```{r}
 order_in_dend <- order.dendrogram(dend3_pca)
@@ -1188,9 +1264,42 @@ labels(dend3_pca) <- data5$city[order_in_dend]
 plot(dend3_pca,main="Ward method for PCA data (4 clusters)")
 rect.hclust(hcpca3,k=4,border=2:4)
 ```
+Finally, using the silhouette method:
+
+```{r}
+library(cluster)
+
+# Choose the range of clusters to test
+k_values <- 2:6
+
+for (k in k_values) {
+  # Cut dendrogram to get cluster assignments
+  clusters <- cutree(dend3_pca, k = k)
+  
+  # Compute silhouette
+  sil <- silhouette(clusters, dist_data5)
+  
+  # Average silhouette width
+  avg_sil <- mean(sil[, 3])
+  cat("k =", k, "Average silhouette width =", round(avg_sil, 3), "\n")
+}
+```
+```{r}
+order_in_dend <- order.dendrogram(dend3_pca)
+labels(dend3_pca) <- data5$city[order_in_dend]
+plot(dend3_pca,main="Ward method for PCA data - 2 clusters")
+rect.hclust(hcpca3,k=2,border=2:4)
+```
+
+
+
 Based on the cophenetic coefficient, Single Linkage was the best method. But the Ward method will present better the results (visualization).
 
+Hierarchical clustering → generates clusters.
 
+Cut tree → assign points to clusters.
+
+Silhouette → evaluates “fit” of points in those clusters.
 
 
 
