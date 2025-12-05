@@ -1151,7 +1151,7 @@ plot_three_dendros(dend_single, dend_complete, dend_ward)
 dev.off()
 ```
 
-## Cluster Analysis with the PCA Data
+# Cluster Analysis with the PCA Data
 
 Add cities names´ to the pca_scores table
 ```{r}
@@ -1208,6 +1208,8 @@ not be used to compare data sets of very different sizes.
 The coefficient takes values from 0 to 1 and it is actually the mean of the
 normalized lengths at which the clusters are formed.
 
+## AC PCA data single
+
 ```{r}
 hcpca1$ac
 ```
@@ -1226,6 +1228,7 @@ rect.hclust(hcpca1,k=3,border=2:4)
 
 # Combination of methods PCA.
 
+## Cophenetic single
 
 **Cophenetic coefficient** (it gives us the relation between the distance matrix in the beginning and the one obtained from the dendogram) :
 
@@ -1257,6 +1260,12 @@ hcpca2$merge
 hcpca2$order
 ```
 
+## AC complete
+
+```{r}
+hcpca2$ac
+```
+
 ```{r}
 dend2_pca <- as.dendrogram(hcpca2)
 order_in_dend <- order.dendrogram(dend2_pca)
@@ -1265,6 +1274,8 @@ dend2_pca
 plot(dend2_pca,main="Complete Linkage for PCA data (3 clusters)")
 rect.hclust(hcpca2,k=3,border=2:4)
 ```
+
+## Cophenetic Complete
 
 **Cophenetic coefficient**
 
@@ -1302,6 +1313,7 @@ for (k in k_values) {
   cat("k =", k, "Average silhouette width =", round(avg_sil, 3), "\n")
 }
 ```
+
 ```{r}
 order_in_dend <- order.dendrogram(dend2_pca)
 labels(dend2_pca) <- data5$city[order_in_dend]
@@ -1319,7 +1331,7 @@ plot(dend2_pca)
 #plot(clust_pca2,horiz=FALSE,main="Complete Linkage")
 ```
 
-#Finally, comparing with the Ward method:
+# Finally, comparing with the Ward method:
 
 ```{r}
 hcpca3 <- agnes(pca_cluster,method="ward")
@@ -1328,6 +1340,12 @@ hcpca3$merge
 
 ```{r}
 hcpca3$order
+```
+
+## AC Ward
+
+```{r}
+hcpca3$ac
 ```
 
 ```{r}
@@ -1340,10 +1358,13 @@ rect.hclust(hcpca1,k=3,border=2:4)
 ```
 **Cophenetic coefficient**
 
+## Cophenetic Ward
+
 ```{r}
 clust_pca3 <- clustering(pca_cluster,distmethod = "euclidean",clustmethod = "ward.D")
 clust_pca3$cophenetic
 ```
+
 The cophenetic coefficient has a low value with this method of clustering.
 
 ```{r}
@@ -1382,6 +1403,125 @@ order_in_dend <- order.dendrogram(dend3_pca)
 labels(dend3_pca) <- data5$city[order_in_dend]
 plot(dend3_pca,main="Ward method for PCA data - 2 clusters")
 rect.hclust(hcpca3,k=2,border=2:4)
+```
+
+# Summary linkage methods
+
+## Tabla Raw data.
+
+```{r}
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# Create table with the values you provided
+diagnostics_table <- data.frame(
+  Method = c("Single Linkage", "Complete Linkage", "Ward.D2"),
+  Agglomerative_Coefficient = c(0.7033724, 0.8376211, 0.8552635),
+  Cophenetic_Correlation = c(0.8533611, 0.6873652, 0.4697547)
+)
+
+# Format and render as a styled HTML table
+diagnostics_table %>%
+  mutate(across(where(is.numeric), ~ round(.x, 4))) %>%
+  kable(format = "html",
+        col.names = c("Method", "Agglomerative Coefficient (AC)", "Cophenetic Correlation Coefficient"),
+        align = c("l", "r", "r"),
+        caption = "Clustering diagnostics for PCA-based dendrograms") %>%
+  kable_styling(full_width = FALSE, position = "center",
+                bootstrap_options = c("striped", "hover"))
+
+```
+
+## Tabla PCA.
+
+```{r}
+
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+diagnostics_table2 <- data.frame(
+  Method = c("Single Linkage", "Complete Linkage", "Ward.D2"),
+  Agglomerative_Coefficient = c(0.8118718, 0.9007324, 0.8958177),
+  Cophenetic_Correlation = c(0.8529945, 0.7569114, 0.4519069)
+)
+
+diagnostics_table2 %>%
+  mutate(across(where(is.numeric), ~ round(.x, 4))) %>%
+  kable(format = "html",
+        col.names = c("Method", "Agglomerative Coefficient (AC)", "Cophenetic Correlation Coefficient"),
+        align = c("l", "r", "r"),
+        caption = "Clustering diagnostics (updated)") %>%
+  kable_styling(full_width = FALSE, position = "center",
+                bootstrap_options = c("striped", "hover"))
+
+```
+
+# FULL ANALISYS
+
+```{r ward-check-consistent, echo=TRUE, message=FALSE, warning=FALSE}
+# Required packages
+library(cluster)     # agnes
+# library(metan)     # if you used clustering() from metan; not required here
+
+# 0. PCA scores (assume pca_cluster exists: rows = cities, cols = first 3 PCs)
+# If not present, extract from pca_scores:
+# pca_cluster <- as.data.frame(pca_scores)[, 1:3]
+
+# 1. Create a single distance object to use everywhere
+dist_pca <- dist(pca_cluster, method = "euclidean")
+
+# 2. Compute clusterings consistently
+# - agnes for single, complete, and ward (gives AC)
+hc_agnes_single   <- agnes(pca_cluster, method = "single")
+hc_agnes_complete <- agnes(pca_cluster, method = "complete")
+hc_agnes_ward     <- agnes(pca_cluster, method = "ward")   # agnes' ward
+
+# - hclust Ward.D2 (recommended Ward variant for hclust)
+hc_hclust_wardD2  <- hclust(dist_pca, method = "ward.D2")
+
+# 3. Agglomerative coefficient (AC) is available from agnes objects
+ac_single   <- hc_agnes_single$ac
+ac_complete <- hc_agnes_complete$ac
+ac_ward_agnes <- hc_agnes_ward$ac
+
+# 4. Cophenetic distances and correlations
+# Use cophenetic() on hclust objects. For agnes, convert to hclust first.
+coph_single_agnes   <- cophenetic(as.hclust(hc_agnes_single))
+coph_complete_agnes <- cophenetic(as.hclust(hc_agnes_complete))
+coph_ward_agnes     <- cophenetic(as.hclust(hc_agnes_ward))
+
+coph_ward_hclustD2  <- cophenetic(hc_hclust_wardD2)
+
+# Correlations with the original distance
+cop_cor_single   <- cor(as.vector(dist_pca), as.vector(coph_single_agnes))
+cop_cor_complete <- cor(as.vector(dist_pca), as.vector(coph_complete_agnes))
+cop_cor_ward_agnes <- cor(as.vector(dist_pca), as.vector(coph_ward_agnes))
+cop_cor_ward_hclustD2 <- cor(as.vector(dist_pca), as.vector(coph_ward_hclustD2))
+
+# 5. Print a tidy summary so you can compare implementations
+summary_df <- data.frame(
+  Method = c("Single (agnes)", "Complete (agnes)", "Ward (agnes)", "Ward (hclust: ward.D2)"),
+  AC = c(ac_single, ac_complete, ac_ward_agnes, NA),
+  Cophenetic = c(cop_cor_single, cop_cor_complete, cop_cor_ward_agnes, cop_cor_ward_hclustD2)
+)
+
+print(summary_df, digits = 6)
+
+# 6. If you used another function (e.g., clustering(..., clustmethod="ward.D")),
+# compare its cophenetic to the above using the same dist_pca:
+# Example (if clust_pca3 exists and has $cophenetic):
+if (exists("clust_pca3") && !is.null(clust_pca3$cophenetic)) {
+  cat("\nclust_pca3$cophenetic (from your package) =\n")
+  print(clust_pca3$cophenetic)
+  # If it's a single number, compare directly:
+  if (length(clust_pca3$cophenetic) == 1) {
+    cat("\nComparison: clust_pca3$cophenetic vs cop_cor_ward_hclustD2:\n")
+    print(c(clust_pca3 = clust_pca3$cophenetic, ward_hclustD2 = cop_cor_ward_hclustD2))
+  }
+}
+
 ```
 
 
