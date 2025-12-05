@@ -157,7 +157,7 @@ ggplot(data5, aes(x = city, y = so2)) +
 ```{r}
 #correlation heatmap of the numeric variables
 
-install.packages(c("corrplot", "reshape2"))
+# install.packages(c("corrplot", "reshape2"))
 library(corrplot)
 library(reshape2)
 
@@ -842,22 +842,23 @@ cor_data5
 ```
 
 *Secondly*,  to perform and obtain the *dendograms* we need to determine the distances (to cluster the groups).
-```{r}
-#remove columns we don't need for the analysis, based on the PCA (in this case, the column "wind")
+```{r, echo=FALSE}
+# install.packages("proxy")
+library(proxy)
+# We Scale the data to perform the euclidean distance.
 data5_v <- scale(data5_variables)
 
 #dissimilarity matrix : Mahalanobis distance
-#dist_data5 <- dist(data5_v, method = "euclidean")
-install.packages("proxy")
-library(proxy)
-dist_data5 <- proxy::dist(data5_v, method = "Mahalanobis")
+# dist_data5 <- proxy::dist(data5_v, method = "Mahalanobis")
 
+# Eucledian distance.
+dist_data5 <- dist(data5_v, method = "euclidean")
 dist_data5
 ```
-The dissimilarity matrix is calculated from the data matrix and it contains the values measuring the dissimilarity/similarity between the elements of each pair. 
+The dissimilarity matrix is calculated from the data matrix and it contains the values measuring the dissimilarity/similarity between the elements of each pair.
 Euclidean distance should not be used when we have different variables measured in different units so, in our case we should use Mahalanobis distance, because, besides the different units, we have correlated variables in the correlation matrix, mainly manuf and pop. So, this method would solve our problem with different scales while also the effects of correlation between variables.
 
-To determine the optimal number of clusters in a dendogram for hierarchical methods and for the original data, we used the silhouette width. The best value of k is the one with the largest average silhouette. 
+To determine the optimal number of clusters in a dendogram for hierarchical methods and for the original data, we used the silhouette width. The best value of k is the one with the largest average silhouette.
 
 ```{r}
 #non hierarchical, n da para usar. Silhoette da para usar.
@@ -879,10 +880,12 @@ hc1_s$merge
 hc1_s$order
 ```
 
+## The AC value is very high.
+
 ```{r}
 hc1_s$ac
 ```
-The AC value is very high.
+
 
 ```{r}
 #Dendrogram
@@ -893,14 +896,45 @@ labels(dend1_s) <- data5$city[order_in_dend]
 plot(dend1_s, main = "Single Linkage - standardized data")
 abline(h = 3, col = "red", lwd = 2)
 ```
-In the single linkage case, it is produced a chain effect, so the elbow method for this case isn't that reliable. We know that in a dendogram, the most similar objects get merged first and as we go up in the dendogram, less similar objects merge, represented by taller lines. Merging things that are not similar is not a good cluster, so in this case, the most part of the merges occur below height 2 and at height 3,  the lines get taller, so, we cut the dendogram from there to decide the optimal number of clusters - in this case, k=3.
+
+## Other Dendogram.
+
+```{r}
+# assume hc1_s is an agnes object
+dend1_s <- as.dendrogram(hc1_s)
+dend1_s <- ladderize(dend1_s)                # tidy ordering
+labels(dend1_s) <- data5$city[order.dendrogram(dend1_s)]
+
+# plot with nicer defaults
+par(mar = c(6, 4, 4, 2) + 0.1)               # room for rotated labels
+plot(dend1_s, main = "Single Linkage — Standardized data",
+     ylab = "Height (dissimilarity)",        # clearer axis label
+     xlab = "",                              # no x label
+     sub = "",                               # remove subtitle
+     axes = TRUE,                            # show axis
+     edgePar = list(col = "darkgray", lwd = 2),
+     nodePar = list(cex = 0.7))              # node label size
+
+# rotate/angle labels for readability
+# base plot doesn't rotate labels; use text() to add rotated labels if needed
+# add cut line and rectangles for k clusters
+abline(h = 3, col = "red", lwd = 2, lty = 2)
+
+```
+
+
+In the single linkage case, it is produced a chain effect, so the elbow method for this case isn't that reliable.
+We know that in a dendogram, the most similar objects get merged first and as we go up in the dendogram, less similar objects merge, represented by taller lines.
+Merging things that are not similar is not a good cluster, so in this case, the most part of the merges occur below height 2 and at height 3,  the
+lines get taller, so, we cut the dendogram from there to decide the optimal number of clusters - in this case, k=3.
+
 ```{r}
 plot(dend1_s, main="Single Linkage - 3 clusters")
 # k =  clusters considered
 rect.hclust(hc1_s, k=3, border = 2:4)
 ```
 
-Now we can do the *Cophenetic Coefficient*.
+## Now we can do the *Cophenetic Coefficient*.
 
 ```{r}
 #Cophenetic Coefficient
@@ -926,9 +960,12 @@ hc2_s$merge
 hc2_s$order
 ```
 
+## AC Value Complete
+
 ```{r}
 hc2_s$ac
 ```
+
 The AC value is high.
 
 ```{r}
@@ -947,7 +984,7 @@ plot(dend2_s, main="Complete Linkage - 4 clusters")
 rect.hclust(hc2_s, k=3, border = 2:4)
 ```
 
-Now we can do the *Cophenetic Coefficient*.
+## Now we can do the *Cophenetic Coefficient*. complete
 
 ```{r}
 #Cophenetic Coefficient
@@ -974,7 +1011,7 @@ for (k in k_values) {
   cat("k =", k, "Average silhouette width =", round(avg_sil, 3), "\n")
 }
 ```
-The k with highest average silhouette width, k=2, is the optimal number of clusters when using this method. 
+The k with highest average silhouette width, k=2, is the optimal number of clusters when using this method.
 
 Considering 2 clusters:
 ```{r}
@@ -996,6 +1033,8 @@ hc3_s$merge
 hc3_s$order
 ```
 
+## AC ward
+
 ```{r}
 hc3_s$ac
 ```
@@ -1016,7 +1055,7 @@ plot(dend3_s, main="Ward Linkage - 5 clusters")
 rect.hclust(hc3_s, k=5, border = 2:4)
 ```
 
-Now we can do the *Cophenetic Coefficient*.
+## Now we can do the *Cophenetic Coefficient*. Ward
 
 ```{r}
 #Cophenetic Coefficient
@@ -1039,10 +1078,10 @@ k_values <- 2:6
 for (k in k_values) {
   # Cut dendrogram to get cluster assignments
   clusters <- cutree(hc3_s, k = k)
-  
+
   # Compute silhouette
   sil <- silhouette(clusters, dist_data5)
-  
+
   # Average silhouette width
   avg_sil <- mean(sil[, 3])
   cat("k =", k, "Average silhouette width =", round(avg_sil, 3), "\n")
@@ -1058,8 +1097,59 @@ rect.hclust(hc3_s, k=6, border = 2:4)
 
 **RESULT** The ward method has a much lower coefficient than the other ones.
 
+## Cluster combination
 
+```{r dendrograms-display-and-save, echo=TRUE, message=FALSE, warning=FALSE}
+# packages
+library(cluster)     # agnes
+library(dendextend)  # ladderize, set(..., "labels_cex")
 
+data5_v <- scale(data5_variables)
+
+# compute agglomerative clusterings (single, complete, ward)
+hc_single   <- agnes(data5_v, method = "single")
+hc_complete <- agnes(data5_v, method = "complete")
+hc_ward     <- agnes(data5_v, method = "ward")   # agnes "ward"
+
+# convert to hclust for convenience and create dendrograms
+hclust_single   <- as.hclust(hc_single)
+hclust_complete <- as.hclust(hc_complete)
+hclust_ward     <- as.hclust(hc_ward)
+
+dend_single   <- as.dendrogram(hclust_single)   %>% ladderize()
+dend_complete <- as.dendrogram(hclust_complete) %>% ladderize()
+dend_ward     <- as.dendrogram(hclust_ward)     %>% ladderize()
+
+# set labels in plotting order and reduce label size
+labels(dend_single)   <- data5$city[order.dendrogram(dend_single)]
+labels(dend_complete) <- data5$city[order.dendrogram(dend_complete)]
+labels(dend_ward)     <- data5$city[order.dendrogram(dend_ward)]
+
+# smaller label text for all dendrograms
+dend_single   <- set(dend_single,   "labels_cex", 0.55)
+dend_complete <- set(dend_complete, "labels_cex", 0.55)
+dend_ward     <- set(dend_ward,     "labels_cex", 0.55)
+
+plot_three_dendros <- function(d1, d2, d3) {
+  op <- par(mfrow = c(1, 3), mar = c(8, 4, 3, 1) + 0.1)  # extra bottom margin for labels
+  plot(d1, main = "Single linkage", ylab = "Height",
+       edgePar = list(col = "darkgray", lwd = 1))
+  plot(d2, main = "Complete linkage", ylab = "Height",
+       edgePar = list(col = "darkgray", lwd = 1))
+  plot(d3, main = "Ward linkage", ylab = "Height",
+       edgePar = list(col = "darkgray", lwd = 1))
+  par(op)
+}
+
+# Display in the knitted report
+plot_three_dendros(dend_single, dend_complete, dend_ward)
+
+# 2) Save identical high-resolution PNG to plots/ (re-run the same plotting code inside png())
+if (!dir.exists("plots")) dir.create("plots")
+png(filename = "plots/dendrograms_comparison.png", width = 2400, height = 1000, res = 300)
+plot_three_dendros(dend_single, dend_complete, dend_ward)
+dev.off()
+```
 
 ## Cluster Analysis with the PCA Data
 
@@ -1089,7 +1179,7 @@ pca_cluster2 <- pca_scores2[,1:4] ; pca_cluster2 #usar com labels das cidades
 ```{r}
 #dissimilarity matrix : squared euclidean distance
 library(proxy)
-dist_pca <- proxy::dist(pca_cluster,method="Mahalanobis")
+dist_pca <- proxy::dist(pca_cluster,method="euclidean")
 dist_pca
 ```
 
@@ -1133,6 +1223,9 @@ dend1_pca
 plot(dend1_pca,main="Single Linkage for PCA data (3 clusters)")
 rect.hclust(hcpca1,k=3,border=2:4)
 ```
+
+# Combination of methods PCA.
+
 
 **Cophenetic coefficient** (it gives us the relation between the distance matrix in the beginning and the one obtained from the dendogram) :
 
@@ -1190,7 +1283,7 @@ labels(dend2_pca) <- data5$city[order_in_dend]
 plot(dend2_pca,main="Complete Linkage for PCA data (4 clsuters)")
 rect.hclust(hcpca2,k=4,border=2:4)
 ```
-Finally, considering the number of optimal clusters given by the silhouette method: 
+Finally, considering the number of optimal clusters given by the silhouette method:
 ```{r}
 library(cluster)
 
@@ -1200,10 +1293,10 @@ k_values <- 2:6
 for (k in k_values) {
   # Cut dendrogram to get cluster assignments
   clusters <- cutree(dend2_pca, k = k)
-  
+
   # Compute silhouette
   sil <- silhouette(clusters, dist_data5)
-  
+
   # Average silhouette width
   avg_sil <- mean(sil[, 3])
   cat("k =", k, "Average silhouette width =", round(avg_sil, 3), "\n")
@@ -1275,10 +1368,10 @@ k_values <- 2:6
 for (k in k_values) {
   # Cut dendrogram to get cluster assignments
   clusters <- cutree(dend3_pca, k = k)
-  
+
   # Compute silhouette
   sil <- silhouette(clusters, dist_data5)
-  
+
   # Average silhouette width
   avg_sil <- mean(sil[, 3])
   cat("k =", k, "Average silhouette width =", round(avg_sil, 3), "\n")
@@ -1301,22 +1394,73 @@ Cut tree → assign points to clusters.
 
 Silhouette → evaluates “fit” of points in those clusters.
 
+## Combining of PCA dendrograms.
 
+```{r}
+# packages
+library(cluster)     # agnes
+library(dendextend)  # ladderize, set(..., "labels_cex")
 
+# Ensure PCA scores exist and select first 3 PCs (adjust ncomp if needed)
+if (!exists("pca_scores")) {
+  stop("pca_scores not found. Run PCA and create 'pca_scores' before this chunk.")
+}
+ncomp <- min(3, ncol(pca_scores))
+pca_cluster <- as.data.frame(pca_scores)[, 1:ncomp, drop = FALSE]
 
-```{r hierarchical-clustering}
-# GOAL: Perform hierarchical clustering on the first two PCA scores.
-# 1. Extract the first two columns from pca_results$x.
-# 2. Calculate the distance matrix using dist().
-# 3. Perform clustering using hclust().
-# 4. Plot the resulting dendrogram.
-#
-# Placeholder:
-# pca_scores <- as.data.frame(pca_results$x[, 1:2])
-# distance_matrix <- dist(pca_scores)
-# hclust_results <- hclust(distance_matrix, method = "complete")
-# plot(hclust_results, labels = data5$city, main = "Hierarchical Clustering Dendrogram")
+# compute agglomerative clusterings (single, complete, ward) on PCA scores
+hc_single_pca   <- agnes(pca_cluster, method = "single")
+hc_complete_pca <- agnes(pca_cluster, method = "complete")
+hc_ward_pca     <- agnes(pca_cluster, method = "ward")   # agnes "ward"
+
+# convert to hclust for convenience and create dendrograms
+hclust_single_pca   <- as.hclust(hc_single_pca)
+hclust_complete_pca <- as.hclust(hc_complete_pca)
+hclust_ward_pca     <- as.hclust(hc_ward_pca)
+
+dend_single_pca   <- as.dendrogram(hclust_single_pca)   %>% ladderize()
+dend_complete_pca <- as.dendrogram(hclust_complete_pca) %>% ladderize()
+dend_ward_pca     <- as.dendrogram(hclust_ward_pca)     %>% ladderize()
+
+# set labels in plotting order and reduce label size
+if (!is.null(data5$city)) {
+  labels(dend_single_pca)   <- data5$city[order.dendrogram(dend_single_pca)]
+  labels(dend_complete_pca) <- data5$city[order.dendrogram(dend_complete_pca)]
+  labels(dend_ward_pca)     <- data5$city[order.dendrogram(dend_ward_pca)]
+} else {
+  labels(dend_single_pca)   <- rownames(pca_cluster)[order.dendrogram(dend_single_pca)]
+  labels(dend_complete_pca) <- rownames(pca_cluster)[order.dendrogram(dend_complete_pca)]
+  labels(dend_ward_pca)     <- rownames(pca_cluster)[order.dendrogram(dend_ward_pca)]
+}
+
+# smaller label text for all dendrograms
+dend_single_pca   <- set(dend_single_pca,   "labels_cex", 0.55)
+dend_complete_pca <- set(dend_complete_pca, "labels_cex", 0.55)
+dend_ward_pca     <- set(dend_ward_pca,     "labels_cex", 0.55)
+
+plot_three_pca_dendros <- function(d1, d2, d3) {
+  op <- par(mfrow = c(1, 3), mar = c(8, 4, 3, 1) + 0.1)  # extra bottom margin for labels
+  plot(d1, main = "Single linkage (PCA scores)", ylab = "Height",
+       edgePar = list(col = "darkgray", lwd = 1))
+  plot(d2, main = "Complete linkage (PCA scores)", ylab = "Height",
+       edgePar = list(col = "darkgray", lwd = 1))
+  plot(d3, main = "Ward linkage (PCA scores)", ylab = "Height",
+       edgePar = list(col = "darkgray", lwd = 1))
+  par(op)
+}
+
+# Display in the knitted report
+plot_three_pca_dendros(dend_single_pca, dend_complete_pca, dend_ward_pca)
+
+# Save identical high-resolution PNG to plots/ (re-run the same plotting code inside png())
+if (!dir.exists("plots")) dir.create("plots")
+png(filename = "plots/pca_dendrograms_comparison.png", width = 2400, height = 1000, res = 300)
+plot_three_pca_dendros(dend_single_pca, dend_complete_pca, dend_ward_pca)
+dev.off()
+
 ```
+
+
 
 ### Determining the Number of Clusters & Characterization
 
@@ -1349,8 +1493,8 @@ print(cluster_means)
 Now that the clusters are defined, we visualize them on the PCA biplot. This synthesizes the two analyses, showing how the identified city groupings relate to the primary axes of variation.
 
 ```{r pca-biplot-with-clusters, message=FALSE, warning=FALSE}
-install.packages("FactoMineR")
-install.packages("factoextra")
+# install.packages("FactoMineR")
+# install.packages("factoextra")
 library(FactoMineR)
 library(factoextra)
 
