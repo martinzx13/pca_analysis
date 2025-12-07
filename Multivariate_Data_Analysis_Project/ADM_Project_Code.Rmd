@@ -18,19 +18,7 @@ out_dir <- file.path("./plots")   # change base path if needed
 
 ```
 
-
-# Abstract
-
-Air pollution in urban environments is a significant public health concern.
-Some evidence indicates that air pollution exposure has way more consequences than the ones that we thought previously. In terms of adverse health impacts like the reduction in life expectancy, and hospital admissions, birth outcomes, and asthma. Nevertheless, these effects exist in both economically developing and developed countries [1].
-
-Classical PCA can be expressed as a projection-based approach, since it's a method that projects high-dimensional data into a lower-dimensional space by finding the principal components (PC) that best represent the original information. With this, we can do a dimensional reduction while preserving the essential structure of the data. [2]
-
-
-Due to the reasons mentioned before, this project aims to analyze a dataset of 41 US cities to identify underlying patterns and relationships between pollution levels, climatic conditions, and demographic or industrial factors.
-
-The study utilizes multivariate techniques, primarily **Principal Component Analysis (PCA)** and **Cluster Analysis**, to reduce the complexity of the data and group cities with similar profiles.
-The objective is to translate complex statistical relationships into clear, interpretable insights.
+# Dataset
 
 The dataset contains the following variables:
 
@@ -561,19 +549,6 @@ aes(x = Dim.1, y = Dim.3)   # for PC1 vs PC3
 
 ```
 
-## Option 2.
-```{r pca-biplot-ggfortify, message=FALSE, warning=FALSE, echo=FALSE}
-library(ggfortify)
-autoplot(pca_results,
-           data = data5, # Use original data for labels
-           loadings = TRUE, loadings.colour = 'red',
-           loadings.label = TRUE, loadings.label.size = 3,
-           label = TRUE, label.size = 2.5, shape = FALSE) +
-    labs(title = "PCA Biplot of US Cities",
-         subtitle = "Principal Components and Original Variable Loadings") +
-    theme_minimal()
-```
-
 ## Enhance Option 1 PC2 vs PC3.
 
 ## Option 1
@@ -627,19 +602,6 @@ ggsave("plots/biplot_pc2_pc3_plot.png", width = 8, height = 5, dpi = 300)
 aes(x = Dim.1, y = Dim.3)   # for PC2 vs PC3
 aes(x = Dim.2, y = Dim.3)   # for PC1 vs PC3
 
-```
-## Option 2
-```{r pca-biplot2, message=FALSE, warning=FALSE, echo=FALSE}
-library(ggfortify)
-autoplot(pca_results,
-           data = data5, # Use original data for labels
-           x = 2, y = 3, # <-- specify PC2 vs PC3
-           loadings = TRUE, loadings.colour = 'red',
-           loadings.label = TRUE, loadings.label.size = 3,
-           label = TRUE, label.size = 2.5, shape = FALSE) +
-    labs(title = "PCA Biplot of US Cities",
-         subtitle = "PC2: Climate (Cold/Wet vs. Warm/Dry), PC3: Temperature") +
-    theme_minimal()
 ```
 
 ## Enhance Option 1 PC1 vs PC3.
@@ -819,7 +781,9 @@ library(maps) # for map data
 cor_data5
 ```
 
-*Secondly*,  to perform and obtain the *dendograms* we need to determine the distances (to cluster the groups).
+*Secondly*,  to perform and obtain the *dendograms* we need to determine
+the distances (to cluster the groups).
+
 ```{r, echo=FALSE}
 # install.packages("proxy")
 library(proxy)
@@ -845,7 +809,8 @@ To determine the optimal number of clusters in a dendogram for hierarchical meth
 library(factoextra)
 fviz_nbclust(data5_v, hcut, method = "wss")
 ```
-(Here we can see the elbow point at 3 clusters, or even 4 clusters, but we considered the optimal number of clusters k=3)
+(Here we can see the elbow point at 3 clusters, or even 4 clusters, but we considered
+the optimal number of clusters k=3)
 
 **Let´s perform the Hierarchical Clustering**.
 
@@ -877,42 +842,7 @@ plot(dend1_s, main = "Single Linkage - standardized data")
 abline(h = 3, col = "red", lwd = 2)
 ```
 
-## Other Dendogram.
 
-```{r}
-# assume hc1_s is an agnes object
-dend1_s <- as.dendrogram(hc1_s)
-dend1_s <- ladderize(dend1_s)                # tidy ordering
-labels(dend1_s) <- data5$city[order.dendrogram(dend1_s)]
-
-# plot with nicer defaults
-par(mar = c(6, 4, 4, 2) + 0.1)               # room for rotated labels
-plot(dend1_s, main = "Single Linkage — Standardized data",
-     ylab = "Height (dissimilarity)",        # clearer axis label
-     xlab = "",                              # no x label
-     sub = "",                               # remove subtitle
-     axes = TRUE,                            # show axis
-     edgePar = list(col = "darkgray", lwd = 2),
-     nodePar = list(cex = 0.7))              # node label size
-
-# rotate/angle labels for readability
-# base plot doesn't rotate labels; use text() to add rotated labels if needed
-# add cut line and rectangles for k clusters
-abline(h = 3, col = "red", lwd = 2, lty = 2)
-
-```
-
-
-In the single linkage case, it is produced a chain effect, so the elbow method for this case isn't that reliable.
-We know that in a dendogram, the most similar objects get merged first and as we go up in the dendogram, less similar objects merge, represented by taller lines.
-Merging things that are not similar is not a good cluster, so in this case, the most part of the merges occur below height 2 and at height 3,  the
-lines get taller, so, we cut the dendogram from there to decide the optimal number of clusters - in this case, k=3.
-
-```{r}
-plot(dend1_s, main="Single Linkage - 3 clusters")
-# k =  clusters considered
-rect.hclust(hc1_s, k=3, border = 2:4)
-```
 
 ## Now we can do the *Cophenetic Coefficient*.
 
@@ -1001,7 +931,6 @@ elbow_plot_pca <- fviz_nbclust(pac_socres_data,
    scale_color_manual(values = c("Robust (PCA)" = "blue", "Standarized (Raw)" = "red"))
 
 ```
-
 
 
 ## Silhouette for raw data
@@ -1253,44 +1182,37 @@ pca_cluster2 <- pca_scores2[,1:4] ; pca_cluster2 #usar com labels das cidades
 ```{r}
 #dissimilarity matrix : squared euclidean distance
 library(proxy)
-dist_pca <- proxy::dist(pca_cluster,method="euclidean")
+dist_pca <- dist(pca_cluster,method="euclidean")
 dist_pca
 ```
 
 
 **Let´s perform the Hierarchical Clustering for the PCA data**.
 
-### SINGLE LINKAGE
+## SINGLE LINKAGE
 ```{r}
 #hierarchical clustering (aglommerative) using Single Linkage
 hcpca1 <- agnes(dist_pca,method="single") #agnes Computes agglomerative hierarchical clustering of the dataset.
-
-```
-
-```{r}
 hcpca1$merge
-```
-Visualize the order in which the objects, clustered, appear in the dendrogram.
-
-```{r}
+#Visualize the order in which the objects, clustered, appear in the dendrogram.
 hcpca1$order
+
 ```
 
-The **agglomeration coefficient (AC)** describes the strength of the
-clustering structure that has been obtained by **Single Linkage**.
-However, this coefficient tends to become larger when n increases, so it should
-not be used to compare data sets of very different sizes.
-The coefficient takes values from 0 to 1 and it is actually the mean of the
-normalized lengths at which the clusters are formed.
-
-## AC PCA data single
+### AC
 
 ```{r}
 hcpca1$ac
 ```
-As we can see, the ac is high, meaning that the algorithm performed poorly in this case (far from 1).
 
-**Dendogram**
+### Cophenetic single
+
+```{r}
+clust_pca <- clustering(pca_cluster,distmethod = "euclidean",clustmethod = "single")
+clust_pca$cophenetic
+```
+
+### Dendogram
 
 ```{r}
 dend1_pca <- as.dendrogram(hcpca1)
@@ -1303,20 +1225,14 @@ rect.hclust(hcpca1,k=3,border=2:4)
 
 # Combination of methods PCA.
 
-## Cophenetic single
 
-**Cophenetic coefficient** (it gives us the relation between the distance matrix in the beginning and the one obtained from the dendogram) :
-
-```{r}
-clust_pca <- clustering(pca_cluster,distmethod = "euclidean",clustmethod = "single")
-clust_pca$cophenetic
-```
-The cophenetic coefficient has a quite high value.
 
 ```{r}
 plot(clust_pca,horiz=FALSE,main="Single Linkage method")
 ```
+
 Considering 4 clusters:
+
 ```{r}
 order_in_dend <- order.dendrogram(dend1_pca)
 labels(dend1_pca) <- data5$city[order_in_dend]
