@@ -9,32 +9,6 @@ output:
   html_document:
     toc: TRUE
     toc_float: TRUE
-#   pdf_document:
-#     latex_engine: xelatex
-#     toc: true
-#     toc_depth: 2
-#     number_sections: true
-#     fig_caption: true
-#     highlight: tango
-#     citation_package: biblatex
-# bibliography: ../library.bib
-# fontsize: 11pt
-# geometry: margin=1in
-# header-includes:
-#  - \setlength{\headheight}{14pt}
-#  - \usepackage{xcolor}
-#  - \definecolor{teal}{RGB}{0,128,128}
-#  - \usepackage{sectsty}
-#  - \sectionfont{\color{teal}}
-#  - \subsectionfont{\color{teal}}
-#  - \usepackage{titlesec}
-#  - \titleformat{\section}{\Large\bfseries\color{teal}}{\thesection}{1em}{}
-#  - \titleformat{\subsection}{\large\bfseries\color{teal}}{\thesubsection}{0.5em}{}
-#  - \usepackage{fancyhdr}
-#  - \pagestyle{fancy}
-#  - \fancyhead[L]{\color{teal}Importance of biological samples}
-#  - \fancyhead[R]{\color{teal}\thepage}
-#  - \fancyfoot{}
 ---
 <div style="text-align: justify;">
 
@@ -752,6 +726,10 @@ data5_2 <- prcomp(data5_variables, scale. = TRUE)
 
 pca_scores <- as.data.frame(data5_2$x)
 
+raw_standardized_data <- as.data.frame(scale(data5_variables))
+
+pac_socres_data <- pc_scores_data <- as.data.frame(pca_results$scores[, 1:3])
+
 var_explained <- (data5$sdev)^2 / sum((data5$sdev)^2)
 
 pc1_label <- paste0("PC1 (", round(var_explained[1] * 100, 1), "%)")
@@ -860,10 +838,12 @@ Euclidean distance should not be used when we have different variables measured 
 
 To determine the optimal number of clusters in a dendogram for hierarchical methods and for the original data, we used the silhouette width. The best value of k is the one with the largest average silhouette.
 
+## Elbow Method
+
 ```{r}
 #non hierarchical, n da para usar. Silhoette da para usar.
-#library(factoextra)
-#fviz_nbclust(data5_v, hcut, method = "wss")
+library(factoextra)
+fviz_nbclust(data5_v, hcut, method = "wss")
 ```
 (Here we can see the elbow point at 3 clusters, or even 4 clusters, but we considered the optimal number of clusters k=3)
 
@@ -978,6 +958,96 @@ plot(dend2_s, main = "Complete Linkage - standardized data")
 abline(h = 6, col = "red", lwd = 2)
 ```
 
+## Elbow method for the best linkage method.
+
+```{r Elbow method for the best linkage method}
+raw_standardized_data <- data5_v
+
+# Assuming 'pca_scores' are your 3 PC scores
+# and 'hc_complete_pca' is your hclust object from Complete Linkage
+#
+# The fviz_nbclust function can take the original data and apply
+# the clustering for you for a range of k.
+
+
+library(factoextra)
+elbow_plot_raw <- fviz_nbclust(raw_standardized_data,
+  FUNcluster = function(x, k) hcut(x, k, hc_method = "complete"),
+  method = "wss")
+
+elbow_plot_pca <- fviz_nbclust(pac_socres_data,
+  FUNcluster = function(x, k) hcut(x, k, hc_method = "complete"),
+  method = "wss")
+
+ # 2. Extract and combine
+ data_elbow_pca <- elbow_plot_pca$data
+ data_elbow_raw <- elbow_plot_raw$data
+
+ data_elbow_pca$Approach <- "Robust (PCA)"
+ data_elbow_raw$Approach <- "Standarized (Raw)"
+
+ combined_elbow_data <- rbind(data_elbow_pca, data_elbow_raw)
+
+ # 3. Create superior comparison plot
+ ggplot(combined_elbow_data, aes(x = clusters, y = y, group = Approach, color = Approach)) +
+   geom_line(linewidth = 1.2) +
+   geom_point(size = 3) +
+  labs(title = "Elbow plot (WSS): Raw vs PCA (complete linkage)",
+       subtitle = "Robust (PCA) vs. Standarized (Raw) Approach",
+       x = "Number of Clusters (k)",
+       y = "Total within-cluster sum of squares (WSS)"
+   ) +
+   theme_minimal(base_size = 14) +
+   scale_color_manual(values = c("Robust (PCA)" = "blue", "Standarized (Raw)" = "red"))
+
+```
+
+
+
+## Silhouette for raw data
+
+```{r}
+
+# Silhouette for raw data
+fviz_nbclust(raw_standardized_data,
+    FUNcluster = function(x, k) hcut(x, k, hc_method = "complete"),
+    method = "silhouette")
+
+```
+
+## Silhouette combine
+
+```{r Silhouette combine}
+# 1. Generate data for Silhouette method
+ sil_plot_pca <- fviz_nbclust(pac_socres_data, FUNcluster = function(x, k) hcut(x, k, hc_method = "complete"), method = "silhouette")
+ sil_plot_raw <- fviz_nbclust(raw_standardized_data, FUNcluster = function(x, k) hcut(x, k, hc_method =  "complete"), method = "silhouette")
+
+ # 2. Extract and combine
+ data_sil_pca <- sil_plot_pca$data
+ data_sil_raw <- sil_plot_raw$data
+
+ data_sil_pca$Approach <- "Robust (PCA)"
+ data_sil_raw$Approach <- "Standarized (Raw)"
+
+ combined_sil_data <- rbind(data_sil_pca, data_sil_raw)
+
+ # 3. Create superior comparison plot
+ ggplot(combined_sil_data, aes(x = clusters, y = y, group = Approach, color = Approach)) +
+   geom_line(linewidth = 1.2) +
+   geom_point(size = 3) +
+   labs(
+     title = "Comparison of Average Silhouette Scores",
+     subtitle = "Robust (PCA) vs. Standarized (Raw) Approach",
+     x = "Number of Clusters (k)",
+     y = "Average Silhouette Width"
+   ) +
+   theme_minimal(base_size = 14) +
+   scale_color_manual(values = c("Robust (PCA)" = "blue", "Standarized (Raw)" = "red"))
+```
+
+
+
+
 ```{r}
 plot(dend2_s, main="Complete Linkage - 4 clusters")
 # k =  clusters considered
@@ -1000,6 +1070,7 @@ cor(dist_data5, coph_2_s)
 It's a smaller value than the *Single Linkage* one.
 
 But using the silhouette method to determine the optimal number of clusters:
+
 ```{r}
 # Define a range of clusters to test
 k_values <- 2:6
@@ -1088,7 +1159,9 @@ for (k in k_values) {
 }
 
 ```
+
 k=6 is the optimal cluster number for the original data.
+
 ```{r}
 plot(dend3_s, main="Ward Linkage - 6 clusters")
 # k =  clusters considered
@@ -1154,6 +1227,7 @@ dev.off()
 # Cluster Analysis with the PCA Data
 
 Add cities names´ to the pca_scores table
+
 ```{r}
 identical(rownames(pca_scores), rownames(data5))
 pca_scores2 <- cbind(city = data5$city, pca_scores)
@@ -1201,6 +1275,7 @@ Visualize the order in which the objects, clustered, appear in the dendrogram.
 ```{r}
 hcpca1$order
 ```
+
 The **agglomeration coefficient (AC)** describes the strength of the
 clustering structure that has been obtained by **Single Linkage**.
 However, this coefficient tends to become larger when n increases, so it should
@@ -1433,6 +1508,38 @@ diagnostics_table %>%
 
 ```
 
+
+## Gap Statistic for raw data
+
+```{r Gap Statistic for raw data}
+library(factoextra)
+
+# Gap Statistic for PCA scores
+set.seed(123)  # reproducibility
+fviz_nbclust(
+  pca_scores2[, -1],   # exclude the city column, keep only numeric PCs
+  FUNcluster = function(x, k) hcut(x, k, hc_method = "complete"),
+  method = "gap_stat",
+  nboot = 50
+) +
+  labs(
+    title = "Gap Statistic for PCA-based Clustering",
+    subtitle = "Hierarchical clustering with complete linkage",
+    x = "Number of clusters (k)",
+    y = "Gap Statistic"
+  ) +
+  theme_minimal(base_size = 14)
+
+gap_stat <- clusGap(pca_scores2[, -1],
+                    FUN = function(x, k) hcut(x, k, hc_method = "complete"),
+                    K.max = 10, B = 50)
+
+fviz_gap_stat(gap_stat)
+
+```
+
+
+
 ## Tabla PCA.
 
 ```{r}
@@ -1603,6 +1710,9 @@ dev.off()
 
 
 ### Determining the Number of Clusters & Characterization
+
+
+---
 
 Based on the dendrogram, you must decide how many clusters to form and justify it. Then, you will characterize them.
 

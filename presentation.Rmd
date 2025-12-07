@@ -1,0 +1,229 @@
+---
+title: "Decoding the American City"
+subtitle: "Pollution, Climate, and Industry in 1970"
+author: "Your Name"
+date: "`r Sys.Date()`"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+## The Challenge: Finding Patterns in Complexity
+
+How can we find the hidden patterns in complex city data?
+
+We start with 7 variables for 41 US cities, each telling a different story.
+
+.pull-left[
+- SO2
+- Temperature
+- Manufacturing
+- Population
+- Wind
+- Precipitation
+- Days of Rain
+]
+.pull-right[
+`[Placeholder for Table 1: Descriptive Statistics]`
+]
+
+---
+
+## A New Lens: Principal Component Analysis
+
+The raw data is noisy and correlated. PCA distills these 7 variables into 3 independent, meaningful "stories" or **Principal Components** that explain **80.5%** of the total variation.
+
+.center[
+`[Placeholder for PCA Loadings Table]`
+]
+
+---
+
+## The Three Stories of Urban America
+
+1.  **PC1: Industrial & Urban Scale** (Large, industrial cities vs. smaller, less industrial ones)
+2.  **PC2: Precipitation Level** (Wet, humid cities vs. dry, arid ones)
+3.  **PC3: Temperature & Population** (Hot, populous cities vs. cold, less populous ones)
+
+.center[
+`[Placeholder for an impressive 3D PCA plot or a 2x2 grid of the 2D biplots]`
+]
+
+---
+
+## The Core Question: Can We Group These Cities?
+
+Now that we have a simpler lens, can we use it to find distinct "archetypes" of American cities?
+
+--
+
+### Our goal: **Cluster Analysis**
+
+---
+
+## The Naive Approach: A Flawed First Attempt
+
+**What happens if we cluster on the original, correlated data?**
+
+--
+
+The results are messy and contradictory. The metrics disagree on which method is best, indicating a flawed foundation.
+
+.center[
+`[Placeholder for the "Raw Data" linkage comparison table (AC & Cophenetic)]`
+]
+
+**This approach is unreliable.**
+
+---
+
+## Why the Naive Approach Fails
+
+.pull-left[
+### Raw Data Clustering
+The strong correlation between `manuf` and `pop` distorts the distance calculations, leading to messy, chained, or unfaithful dendrograms.
+
+`[Placeholder for the 2x2 Raw Data Dendrogram Grid]`
+]
+
+.pull-right[
+### PCA-based Clustering
+Clustering on uncorrelated PC scores gives a much cleaner, more statistically sound result.
+
+`[Placeholder for the 2x2 PCA Scores Dendrogram Grid]`
+]
+
+---
+
+## A Robust Solution: Clustering on PC Scores
+
+Using our clean PC scores, we can now confidently select the best linkage method.
+
+--
+
+**The evidence points to a clear winner.**
+
+.center[
+`[Placeholder for the "PCA Scores" linkage comparison table (AC & Cophenetic)]`
+]
+
+**Complete Linkage** provides the best balance of cluster strength (high AC) and fidelity to the data (high Cophenetic Correlation).
+
+---
+
+## Finding the "Right" Number of Groups
+
+How many city archetypes does the data suggest? We use the **Gap Statistic**, our most robust method.
+
+--
+
+The data points to an optimal number of **k = [X]** clusters.
+
+.center[
+`[Placeholder for the combined Gap Statistic plot (Raw vs. PCA)]`
+]
+
+*(Note how the PCA-based approach (blue) shows a much clearer optimal k than the naive approach (red).)*
+
+---
+
+## The Reveal: Our City Archetypes
+
+Using **Complete Linkage** on the **PC scores** with **k=[X]** clusters, we find the distinct profiles of 1970s American cities.
+
+.center[
+`[Placeholder for the final PCA Biplot (PC1 vs PC2) colored by the chosen clusters]`
+]
+
+---
+
+class: inverse, center, middle
+
+# Characterizing the Archetypes
+
+---
+
+## Archetype 1: [Give a Descriptive Name]
+
+.pull-left[
+### Profile:
+- **PC1 Score:** (High/Low/Avg)
+- **PC2 Score:** (High/Low/Avg)
+- **PC3 Score:** (High/Low/Avg)
+
+### In plain English:
+- These are the [e.g., large, polluted, industrial centers].
+]
+
+.pull-right[
+`[Placeholder for the Cluster Profiles table, highlighting this cluster's row]`
+]
+
+---
+
+## Archetype 2: [Give a Descriptive Name]
+
+.pull-left[
+### Profile:
+- **PC1 Score:** (High/Low/Avg)
+- **PC2 Score:** (High/Low/Avg)
+- **PC3 Score:** (High/Low/Avg)
+
+### In plain English:
+- These are the [e.g., small, clean, and dry cities].
+]
+
+.pull-right[
+`[Placeholder for the Cluster Profiles table, highlighting this cluster's row]`
+]
+
+---
+## ... (Add one slide per cluster) ...
+
+---
+
+## The Geographic Story
+
+Do these statistical groups correspond to a real-world geographic pattern?
+
+--
+
+### Yes.
+
+.center[
+`[Placeholder for the US Map with cities colored by cluster]`
+]
+
+---
+
+## Key Takeaways & Conclusion
+
+1.  **Three narratives drive variation:** City differences in 1970 were primarily about **Industrial Scale**, **Precipitation**, and **Temperature/Population**.
+
+2.  **Methodology is crucial:** A naive clustering approach is misleading. A robust PCA-based approach reveals **[X] distinct city archetypes**.
+
+3.  **Geography is not random:** The [e.g., "Industrial"] cluster is concentrated in the [e.g., "Rust Belt"], while [e.g., "Hot & Dry"] cities are in the Southwest.
+
+---
+
+## A Message for a 1970 City Planner
+
+The single most significant, statistically-backed driver of SO2 pollution was **[Result from your regression model]**.
+
+--
+
+This provides clear evidence that tackling pollution requires addressing [e.g., industrial output], a finding that is distinct from climatic factors.
+
+---
+
+class: center, middle
+
+# Thank You / Q&A
