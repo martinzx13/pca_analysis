@@ -56,7 +56,7 @@ Before applying multivariate methods, a preliminary analysis is essential to und
 # --- ANALYSIS CONTROL ---
 # Set this to TRUE if you have a stable internet connection to generate the city map.
 # If the script gets stuck on the geocoding step, set this to FALSE and re-run.
-run_spatial_analysis <- FALSE
+run_spatial_analysis <- TRUE
 ```
 
 ```{r data-loading, echo=FALSE}
@@ -335,7 +335,9 @@ grid.draw(loadings_plot)
 # dev.off()
 
 ```
+
 # Style 2 of table.
+
 ```{r}
 
 library(knitr)
@@ -1007,11 +1009,6 @@ fviz_nbclust(data5_v, hcut, method = "wss")
 (Here we can see the elbow point at 3 clusters, or even 4 clusters, but we considered
 the optimal number of clusters k=3)
 
-```{r}
-plot(dend1_s, main="Single Linkage - 3 clusters")
-# k =  clusters considered
-rect.hclust(hc1_s, k=3, border = 2:4)
-```
 
 ## Elbow method for the best linkage method.
 
@@ -1058,12 +1055,18 @@ elbow_plot_pca <- fviz_nbclust(pca_scores_data,
 ```
 
 
+```{r}
+plot(dend1_s, main="Single Linkage - 3 clusters")
+# k =  clusters considered
+rect.hclust(hc1_s, k=3, border = 2:4)
+```
+
 ## Silhouette for raw data
 
 ```{r}
 
 # Silhouette for raw data
-fviz_nbclust(raw_standardized_data,
+fviz_nbclust(data5_v,
     FUNcluster = function(x, k) hcut(x, k, hc_method = "complete"),
     method = "silhouette")
 
@@ -1099,9 +1102,38 @@ fviz_nbclust(raw_standardized_data,
    scale_color_manual(values = c("Robust (PCA)" = "blue", "Standarized (Raw)" = "red"))
 ```
 
+
+
 # number k=3 COMPLETE LINKAGE
 
+## Gap Statistic for raw data
 
+```{r Gap Statistic for raw data}
+library(factoextra)
+
+# Gap Statistic for PCA scores
+set.seed(123)  # reproducibility
+fviz_nbclust(
+  pca_scores2[, -1],   # exclude the city column, keep only numeric PCs
+  FUNcluster = function(x, k) hcut(x, k, hc_method = "complete"),
+  method = "gap_stat",
+  nboot = 50
+) +
+  labs(
+    title = "Gap Statistic for PCA-based Clustering",
+    subtitle = "Hierarchical clustering with complete linkage",
+    x = "Number of clusters (k)",
+    y = "Gap Statistic"
+  ) +
+  theme_minimal(base_size = 14)
+
+gap_stat <- clusGap(data5_v[, -1],
+                    FUN = function(x, k) hcut(x, k, hc_method = "complete"),
+                    K.max = 10, B = 50)
+
+fviz_gap_stat(gap_stat)
+
+```
 
 ```{r}
 plot(dend2_s, main="Complete Linkage - 4 clusters")
