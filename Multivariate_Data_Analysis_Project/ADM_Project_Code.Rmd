@@ -790,27 +790,12 @@ library(proxy)
 # We Scale the data to perform the euclidean distance.
 data5_v <- scale(data5_variables)
 
-#dissimilarity matrix : Mahalanobis distance
-# dist_data5 <- proxy::dist(data5_v, method = "Mahalanobis")
-
 # Eucledian distance.
 dist_data5 <- dist(data5_v, method = "euclidean")
 dist_data5
 ```
-The dissimilarity matrix is calculated from the data matrix and it contains the values measuring the dissimilarity/similarity between the elements of each pair.
-Euclidean distance should not be used when we have different variables measured in different units so, in our case we should use Mahalanobis distance, because, besides the different units, we have correlated variables in the correlation matrix, mainly manuf and pop. So, this method would solve our problem with different scales while also the effects of correlation between variables.
 
-To determine the optimal number of clusters in a dendogram for hierarchical methods and for the original data, we used the silhouette width. The best value of k is the one with the largest average silhouette.
 
-## Elbow Method
-
-```{r}
-#non hierarchical, n da para usar. Silhoette da para usar.
-library(factoextra)
-fviz_nbclust(data5_v, hcut, method = "wss")
-```
-(Here we can see the elbow point at 3 clusters, or even 4 clusters, but we considered
-the optimal number of clusters k=3)
 
 **Let´s perform the Hierarchical Clustering**.
 
@@ -824,27 +809,17 @@ hc1_s$merge
 ```{r}
 hc1_s$order
 ```
+#### AC Value
 
-## The AC value is very high.
+The AC value is very high.
 
 ```{r}
 hc1_s$ac
 ```
 
 
-```{r}
-#Dendrogram
-dend1_s <- as.dendrogram(hc1_s)
-#labels(dend1_s) <- data5$city
-order_in_dend <- order.dendrogram(dend1_s)
-labels(dend1_s) <- data5$city[order_in_dend]
-plot(dend1_s, main = "Single Linkage - standardized data")
-abline(h = 3, col = "red", lwd = 2)
-```
-
-
-
-## Now we can do the *Cophenetic Coefficient*.
+#### Cophenetic Coefficient
+Now we can do the *Cophenetic Coefficient*.
 
 ```{r}
 #Cophenetic Coefficient
@@ -855,6 +830,20 @@ coph_1_s <- cophenetic(clust_single_s)
 
 #Cophenetic coefficient
 cor(dist_data5, coph_1_s)
+```
+
+
+
+#### Dendogram
+
+```{r}
+#Dendrogram
+dend1_s <- as.dendrogram(hc1_s)
+#labels(dend1_s) <- data5$city
+order_in_dend <- order.dendrogram(dend1_s)
+labels(dend1_s) <- data5$city[order_in_dend]
+plot(dend1_s, main = "Single Linkage - standardized data")
+abline(h = 3, col = "red", lwd = 2)
 ```
 
 
@@ -870,13 +859,34 @@ hc2_s$merge
 hc2_s$order
 ```
 
-## AC Value Complete
+#### AC Value
 
 ```{r}
 hc2_s$ac
 ```
 
 The AC value is high.
+
+
+
+#### Cophenetic Coefficient
+
+Now we can do the *Cophenetic Coefficient*.
+
+```{r}
+#Cophenetic Coefficient
+clust_complete_s <- hclust(dist_data5, method="complete")
+
+#Cophenetic matrix (delta matrix - obtained based on the dendogram)
+coph_2_s <- cophenetic(clust_complete_s)
+
+#Cophenetic coefficient
+cor(dist_data5, coph_2_s)
+```
+
+It's a smaller value than the *Single Linkage* one.
+
+#### Dendogram
 
 ```{r}
 #Dendrogram
@@ -887,6 +897,64 @@ labels(dend2_s) <- data5$city[order_in_dend2]
 plot(dend2_s, main = "Complete Linkage - standardized data")
 abline(h = 6, col = "red", lwd = 2)
 ```
+
+
+### WARD LINKAGE
+
+```{r}
+hc3_s <- agnes(dist_data5, method = "ward")
+hc3_s$merge
+```
+
+```{r}
+hc3_s$order
+```
+
+## AC ward
+
+```{r}
+hc3_s$ac
+```
+The AC value is high.
+
+```{r}
+#Dendrogram
+dend3_s <- as.dendrogram(hc3_s)
+#labels(dend1_s) <- data5$city
+order_in_dend3 <- order.dendrogram(dend3_s)
+labels(dend3_s) <- data5$city[order_in_dend3]
+plot(dend3_s, main = "Ward Linkage - standardized data")
+```
+
+```{r}
+plot(dend3_s, main="Ward Linkage - 5 clusters")
+# k =  clusters considered
+rect.hclust(hc3_s, k=5, border = 2:4)
+```
+
+
+## WARD LINKAGE
+
+Now we can do the *Cophenetic Coefficient*.
+
+```{r}
+#Cophenetic Coefficient
+clust_ward_s <- hclust(dist_data5, method="ward")
+
+#Cophenetic matrix (delta matrix - obtained based on the dendogram)
+coph_3_s <- cophenetic(clust_ward_s)
+
+#Cophenetic coefficient
+cor(dist_data5, coph_3_s)
+```
+
+
+
+
+
+
+
+
 
 ## Elbow method for the best linkage method.
 
@@ -983,20 +1051,6 @@ plot(dend2_s, main="Complete Linkage - 4 clusters")
 rect.hclust(hc2_s, k=3, border = 2:4)
 ```
 
-## Now we can do the *Cophenetic Coefficient*. complete
-
-```{r}
-#Cophenetic Coefficient
-clust_complete_s <- hclust(dist_data5, method="complete")
-
-#Cophenetic matrix (delta matrix - obtained based on the dendogram)
-coph_2_s <- cophenetic(clust_complete_s)
-
-#Cophenetic coefficient
-cor(dist_data5, coph_2_s)
-```
-
-It's a smaller value than the *Single Linkage* one.
 
 But using the silhouette method to determine the optimal number of clusters:
 
@@ -1022,51 +1076,7 @@ rect.hclust(hc2_s, k=2, border = 2:4)
 
 
 
-### WARD LINKAGE
 
-```{r}
-hc3_s <- agnes(dist_data5, method = "ward")
-hc3_s$merge
-```
-
-```{r}
-hc3_s$order
-```
-
-## AC ward
-
-```{r}
-hc3_s$ac
-```
-The AC value is high.
-
-```{r}
-#Dendrogram
-dend3_s <- as.dendrogram(hc3_s)
-#labels(dend1_s) <- data5$city
-order_in_dend3 <- order.dendrogram(dend3_s)
-labels(dend3_s) <- data5$city[order_in_dend3]
-plot(dend3_s, main = "Ward Linkage - standardized data")
-```
-
-```{r}
-plot(dend3_s, main="Ward Linkage - 5 clusters")
-# k =  clusters considered
-rect.hclust(hc3_s, k=5, border = 2:4)
-```
-
-## Now we can do the *Cophenetic Coefficient*. Ward
-
-```{r}
-#Cophenetic Coefficient
-clust_ward_s <- hclust(dist_data5, method="ward")
-
-#Cophenetic matrix (delta matrix - obtained based on the dendogram)
-coph_3_s <- cophenetic(clust_ward_s)
-
-#Cophenetic coefficient
-cor(dist_data5, coph_3_s)
-```
 Using the silhouette method to determine the optimal number of clusters:
 
 ```{r}
@@ -1152,6 +1162,12 @@ png(filename = "plots/dendrograms_comparison.png", width = 2400, height = 1000, 
 plot_three_dendros(dend_single, dend_complete, dend_ward)
 dev.off()
 ```
+
+
+
+
+
+
 
 # Cluster Analysis with the PCA Data
 
