@@ -13,6 +13,13 @@ output:
 ---
 <div style="text-align: justify;">
 
+```{r}
+# 2. Create folder if it doesn't exist
+out_dir <- file.path("./plots")   # change base path if needed
+
+```
+
+
 # Abstract
 
 Air pollution in urban environments is a significant public health concern.
@@ -25,67 +32,36 @@ Due to the reasons mentioned before, this project aims to analyze a dataset of 4
 The study utilizes multivariate techniques, primarily **Principal Component Analysis (PCA)** and **Cluster Analysis**, to reduce the complexity of the data and group cities with similar profiles.
 The objective is to translate complex statistical relationships into clear, interpretable insights.
 
-# Setup and Libraries
+The dataset contains the following variables:
 
-```{r setup, include=FALSE}
-# --- GLOBAL CHUNK OPTIONS ---
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+ **so2**: Sulfur dioxide content of air in micrograms per cubic meter
 
+ **temp**: Average annual temperature in Fahrenheit
+
+ **manuf**: Number of manufacturing enterprises employing 20 or more workers
+
+ **pop**: Population size (1970 census) in thousands
+
+ **wind**: Average wind speed in miles per hour
+
+ **precip**: Average annual precipitation in inches
+
+ **days**: Average number of days with precipitation per year
+
+# Preliminary analysis of the data
+
+Before applying multivariate methods, a preliminary analysis is essential to understand the individual variables and their pairwise relationships.
+
+```{r setup-spatial-toggle, include=FALSE}
 # --- ANALYSIS CONTROL ---
 # Set this to TRUE if you have a stable internet connection to generate the city map.
 # If the script gets stuck on the geocoding step, set this to FALSE and re-run.
 run_spatial_analysis <- TRUE
-
-# --- LIBRARIES ---
-library(dplyr)
-library(corrplot)
-library(reshape2)
-library(GGally)
-library(stats)
-library(ggplot2)
-library(gridExtra)
-library(grid)
-library(knitr)
-library(kableExtra)
-library(FactoMineR)
-library(factoextra)
-library(ggrepel)
-library(plotly)
-library(tidyverse)
-library(cluster)
-library(dendextend)
-library(laGP)
-library(metan)
-library(tidygeocoder)
-library(maps)
-library(ggforce)
-
-# --- DIRECTORY SETUP ---
-# Create folder for plots if it doesn't exist
-out_dir <- file.path("./plots")
-if (!dir.exists(out_dir)) {
-  dir.create(out_dir)
-}
 ```
-
-# 1. The Data
-
-## Data Source and Description
-
-The dataset contains the following variables for 41 US cities, based on a 1970 census:
-
-- **so2**: Sulfur dioxide content of air in micrograms per cubic meter
-- **temp**: Average annual temperature in Fahrenheit
-- **manuf**: Number of manufacturing enterprises employing 20 or more workers
-- **pop**: Population size (1970 census) in thousands
-- **wind**: Average wind speed in miles per hour
-- **precip**: Average annual precipitation in inches
-- **days**: Average number of days with precipitation per year
-
-## Data Loading and Initial Inspection
 
 ```{r data-loading, echo=FALSE}
 # The data is loaded from the folder data/data5.csv
+
 data5 <- read.csv("./data/data_5.csv", header = TRUE)
 head(data5)
 ```
@@ -93,31 +69,31 @@ head(data5)
 ```{r data-structure, echo=FALSE}
 # Display the dimensions and structure of the dataset.
 dim(data5)
+
 str(data5)
 ```
 
-# 2. Exploratory Data Analysis
-
-Before applying multivariate methods, a preliminary analysis is essential to understand the individual variables and their pairwise relationships.
-
-## Numerical Data Selection
+## Numerical Data
 
 ```{r variable-selection, echo=FALSE}
 # We select only the numeric variables for the analysis. (I modified the selector using seletc_if
 # In order to make it more global and we can apply to any data in the future)
+
+library(dplyr)
+
 data5_variables <- select_if(data5, is.numeric)
 head(data5_variables)
 ```
 
-## Descriptive Statistics and Correlations
+## Descriptive Statistics
 
-```{r descriptive-stats, echo=FALSE}
-# Calculate standard deviation for each variable.
-data5_variables %>% summarise_if(is.numeric, sd)
-```
-
-```{r correlation-heatmap}
+```{r}
 #correlation heatmap of the numeric variables
+
+# install.packages(c("corrplot", "reshape2"))
+library(corrplot)
+library(reshape2)
+
 corr_matrix <- cor(data5_variables, use = "complete.obs")  # handles missing values
 
 # Basic correlation heatmap
@@ -130,7 +106,17 @@ corrplot(corr_matrix, method = "color",
          mar = c(0,0,1,0))
 ```
 
-## Correlation Matrix and Pairs Plot
+
+
+```{r dispersion-measures}
+# Calculate standard deviation for each variable.
+library(dplyr)
+
+data5_variables %>% summarise_if(is.numeric, sd)
+```
+
+
+## Correlation Analysis + Correlation Matrix
 
 ```{r pairs-plot}
 # Visualize pairwise relationships between all variables.
@@ -145,7 +131,9 @@ cor_data5
 ```
 
 
-```{r ggpairs-plot}
+```{r}
+library(GGally)
+
 p <- ggpairs(
   data5_variables,
   title = "Pairs Plot : Air Pollution Data",
@@ -155,41 +143,55 @@ p <- ggpairs(
 )
 p
 ggsave("plots/pairs_plot.png", plot = p, width = 10, height = 8, dpi = 300)
+
 ```
 
-# 3. Methodology
 
-**Principal Component Analysis (PCA)** will be used to reduce the dimensionality of the dataset. By creating a smaller set of uncorrelated components, we can simplify the data while retaining most of the original variance. We will use the *correlation matrix* (`scale = TRUE`) to account for the different units and scales of the original variables.
+# Principal Component Analysis (PCA)
 
-**Cluster Analysis** will be used to group similar cities using *hierarchical clustering*. We will perform this in two forms, with the original data and with the PCA scores, since it's normal to use the latter in some types of analyses.
+PCA will be used to reduce the dimensionality of the dataset. By creating a smaller set of
+uncorrelated components, we can simplify the data while retaining most of the original variance.
+We will use the *correlation matrix* (`scale = TRUE`) to account for the different units and scales of the original variables.
 
-# 4. Analysis and Results
+**EIGENVALUES AND EIGENVECTORS**
+```{r}
+## 2nd) Obtain eigenvectors and eigenvalues
 
-## Principal Component Analysis (PCA)
-
-### Eigenvalue and Eigenvector Calculation
-```{r pca-eigen}
-# 2nd) Obtain eigenvectors and eigenvalues from the correlation matrix
 eigen_data5 <- eigen(cor_data5)
 eigen_data5
 ```
 
-### Justification for Number of Components Retained
+## Justification for Number of Components Retained
 
-#### Criteria 1: Kaiser's Criterion
+### Criteria 1 => Kaiser's Criteria
+
 *Analyzing the results*, we should retain the first 3 PCs because there are 3 eigenvalues that are >1 (Kaiser's Criteria).
 
-#### Criteria 2: Cumulative Variance from PCA
-```{r pca-analysis}
+However, there are other criteria that we should take into consideration. Now we will perform PCA to see if 3 PCs explain the majority of the variance or not.
+
+### Criteria 2 => PCA
+
+```{r pca analysis}
 # 3rd) Perfom PCA
+library(stats)
 pca_results <- princomp(data5_variables, cor = TRUE)
+
 print(summary(pca_results), loadings = TRUE)
 ```
-*Analyzing the results*, we have 81% of the variance explained with the first 3 PCs (viewed in the cumulative proportion).
 
-#### Criteria 3: Scree Plot
+*Analyzing the results*, we have 81% of the variance explained with the first 3 PCs (viewed in the cumulative proportion). However, if we consider 4 PCs, we will have 93% of the variance explained.
+
+Since this is not conclusive, we should do the third criteria.
+
+### Criteria 3 => Scree Plot
+
+Now we have all that we need to do is a *scree plot* to see where the elbow point might be:
+
 ```{r scree-plot}
+library(ggplot2)
+
 eigenvalues <- eigen_data5$values
+
 scree_data <- data.frame(
   component = 1:length(eigenvalues),
   variance_explained = eigenvalues / sum(eigenvalues)
@@ -200,16 +202,23 @@ ggplot(scree_data, aes(x = component, y = variance_explained)) +
   ylim(0,1) +
   labs(title = "Scree Plot", x = "Principal Component", y = "Proportion of Variance Explained") +
   theme_minimal()
+
 ```
 
-This enhanced scree plot includes the Kaiser criterion cutoff.
-```{r enhanced-screeplot, echo=FALSE}
+### Criteria 3 => Scree Plot Enhance with Kaizer criteria
+
+```{r enhanced-screeplot, echo=FALSE, message=FALSE, warning=FALSE}
+library(ggplot2)
+
+
 eigenvalues <- eigen_data5$values
 scree_data <- data.frame(
   component = 1:length(eigenvalues),
   variance_explained = eigenvalues / sum(eigenvalues)
 )
+
 kaiser_cutoff <- 1 / length(eigenvalues)
+
 ggplot(scree_data, aes(x = component, y = variance_explained)) +
   geom_line(color = "steelblue", size = 1) +
   geom_point(size = 3, color = "darkred") +
@@ -224,28 +233,44 @@ ggplot(scree_data, aes(x = component, y = variance_explained)) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 1)) +
   theme_classic(base_size = 14)
 ggsave("plots/scree_plot.png", width = 8, height = 5, dpi = 300)
+
 ```
-*Analyzing the results*, in this plot, the elbow point would be between PC2 and PC3. Considering all criteria, we will proceed with 3 PCs, explaining approximately 81% of the variance.
+
+*Analyzing the results*, in this plot, the elbow point would be between PC2 and PC3. However, if we consider the other criterias we have applied before, it would be best to use 3 PCs, having approximately 81% of the variance explained.
 
 **SO LET'S CONSIDER 3 PCs.**
 
-### Component Interpretation (Loadings)
-
 Now, we need to see which are the variables that contribute more for the explanation of each principal component retained.
-```{r component-matrix}
+We need to have a correlation matrix between the variables and the PCs (the loadings).
+
+
+## Component Interpretation (Loadings)
+
+```{r component matrix}
 # Correlation between original variables and the PCs (loadings)
+
 component_matrix <- cor(data5_variables,pca_results$scores)
 component_matrix
 ```
+
 We only need to look into the the 3 first PCs, since we determined we are going to use the first three.
 
 - **Principal Component 1 (PC1):** `manuf`, `pop`, and `so2` explained by high loadings. This is an **"Industrialization and Urbanization"** axis.
+
 - **Principal Component 2 (PC2):** `precip` and `days` explained by high loadings. This is a **"Climate"** axis, separating cold and rainy cities from warm and dry ones.
+
 - **Principal Component 3 (PC3):** `temp` is explained by a high loading.
+
 - `wind` is the only variable that is not well explained by the 3 first PCs. It's only explained well by PC4, which we will not consider.
 
-#### Loading Tables
-```{r loading-table-grid}
+To verify that we made the right decisions:
+
+# Tables to summarize the loadings
+
+```{r}
+library(gridExtra)
+library(grid)
+
 # Create table of loadings for the 3 PCs
 loadings_table <- data.frame(
   Variable = c("so2", "temp", "manuf", "pop", "wind", "precip", "days"),
@@ -253,6 +278,7 @@ loadings_table <- data.frame(
   PC2 = c(0.10400859, -0.10900423, -0.27778184, -0.34679989, 0.06821718, 0.76968782, 0.83374415),
   PC3 = c(0.01694887, 0.79975860, 0.31553891, 0.40728458, -0.36763244, 0.58113903, -0.12942257)
 )
+
 # Create a visual table.
 loadings_plot <- tableGrob(
   loadings_table,
@@ -262,46 +288,112 @@ loadings_plot <- tableGrob(
     colhead = list(fg_params = list(fontface = "bold", hjust = 0.5))
   )
 )
+
 # # Export as png
+if(!dir.exists("./plots")) dir.create("./plots")
 png("./plots/pca_loadings_table.png", width = 900, height = 400)
 grid.draw(loadings_plot)
 # dev.off()
+
 ```
 
-```{r loading-table-kable}
+# Style 2 of table
+
+```{r}
+
+library(knitr)
+
+library(kableExtra)
+
+loadings_table <- data.frame(
+  Variable = c("so2", "temp", "manuf", "pop", "wind", "precip", "days"),
+  PC1 = c(0.8088365434, -0.5208984175, 0.8938494595, 0.8053502866, 0.4127189331, 0.0003093839, 0.4297383099),
+  PC2 = c(0.10400859, -0.10900423, -0.27778184, -0.34679989, 0.06821718, 0.76968782, 0.83374415),
+  PC3 = c(0.01694887, 0.79975860, 0.31553891, 0.40728458, -0.36763244, 0.58113903, -0.12942257)
+)
+
 kable(loadings_table, format = "html", digits = 4, align = "c",
       col.names = c("Variable", "PC1", "PC2", "PC3")) %>%
   kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover"))
+
 ```
 
-### Visualization of PCA Results
-```{r scores-prep}
-# Put the scores in their own variable to use
+
+
+Let's prove that with:
+
+```{r}
+# Apply the rule for the 1st PC
+# lambda1 / p
+
+sqrt(eigen_data5$values[1]/8)
+```
+We considered everything above this value for PC1.
+
+```{r}
+# Apply the rule for the 2nd PC
+# lambda1 / p
+
+sqrt(eigen_data5$values[2]/8)
+```
+We considered everything above this value for PC2.
+
+```{r}
+# Apply the rule for the 3rd PC
+# lambda1 / p
+
+sqrt(eigen_data5$values[3]/8)
+```
+We considered everything above this value for PC3.
+
+
+## Visualization of the Data
+
+```{r scores}
+######Scores
+#Put the scores in their own variable to use
 scores <- as.data.frame(pca_results$scores)
-# Add City names
+
+#City names
 scores$city <- data5$city
 ```
 
-#### Biplots
-##### PC1 vs PC2
-```{r biplot-pc1-pc2, echo=FALSE}
+
+The next 3 graphics are on the first 3 PCs:
+
+# Biplots
+
+## PC1 vs PC2
+
+```{r option1, echo=FALSE}
+library(FactoMineR)
+library(factoextra)
+library(ggplot2)
+library(ggrepel)
+
 # Prepare data (exclude city column)
 pca_input <- data5[, -which(names(data5) == "city")]
+
 # Run PCA
 pca_result <- PCA(pca_input, scale.unit = TRUE, graph = FALSE)
+
 # Scores (coordinates of cities)
-scores_viz <- as.data.frame(pca_result$ind$coord)
-scores_viz$city <- data5$city
+scores <- as.data.frame(pca_result$ind$coord)
+scores$city <- data5$city
+
 # Loadings (variable contributions)
 loadings <- as.data.frame(pca_result$var$coord)
 loadings$var <- rownames(loadings)
+
 scale_factor <- 3  # You can adjust this (try 2–5 depending on spread)
 loadings_scaled <- loadings
 loadings_scaled$Dim.1 <- loadings$Dim.1 * scale_factor
 loadings_scaled$Dim.2 <- loadings$Dim.2 * scale_factor
-ggplot(scores_viz, aes(x = Dim.1, y = Dim.2)) +
+
+ggplot(scores, aes(x = Dim.1, y = Dim.2)) +
   geom_point(color = "steelblue", size = 3) +
   geom_text_repel(aes(label = city), size = 3, max.overlaps = 30) +
+
   # Scaled variable vectors
   geom_segment(data = loadings_scaled,
                aes(x = 0, y = 0, xend = Dim.1, yend = Dim.2),
@@ -310,21 +402,52 @@ ggplot(scores_viz, aes(x = Dim.1, y = Dim.2)) +
   geom_text_repel(data = loadings_scaled,
                   aes(x = Dim.1, y = Dim.2, label = var),
                   color = "red", size = 4) +
+
   labs(title = "PCA Biplot of US Cities",
        subtitle = "PC1: Industrialization/Urbanization, PC2: Climate Gradient",
        x = paste0("PC1 (", round(pca_result$eig[1,2], 2), "%)"),
        y = paste0("PC2 (", round(pca_result$eig[2,2], 2), "%)")) +
   theme_classic(base_size = 14)
 ggsave("plots/biplot_pc1_pc2_plot.png", width = 8, height = 5, dpi = 300)
+
+
+aes(x = Dim.2, y = Dim.3)   # for PC2 vs PC3
+aes(x = Dim.1, y = Dim.3)   # for PC1 vs PC3
+
 ```
 
-##### PC2 vs PC3
-```{r biplot-pc2-pc3, echo=FALSE}
-# Using objects created in previous chunk
+## PC2 vs PC3
+
+
+```{r pc2-pc3, echo=FALSE}
+library(FactoMineR)
+library(factoextra)
+library(ggplot2)
+library(ggrepel)
+
+# Prepare data (exclude city column)
+pca_input <- data5[, -which(names(data5) == "city")]
+
+# Run PCA
+pca_result <- PCA(pca_input, scale.unit = TRUE, graph = FALSE)
+
+# Scores (coordinates of cities)
+scores <- as.data.frame(pca_result$ind$coord)
+scores$city <- data5$city
+
+# Loadings (variable contributions)
+loadings <- as.data.frame(pca_result$var$coord)
+loadings$var <- rownames(loadings)
+
+scale_factor <- 3  # You can adjust this (try 2–5 depending on spread)
+loadings_scaled <- loadings
+loadings_scaled$Dim.2 <- loadings$Dim.2 * scale_factor
 loadings_scaled$Dim.3 <- loadings$Dim.3 * scale_factor
-ggplot(scores_viz, aes(x = Dim.2, y = Dim.3)) +
+
+ggplot(scores, aes(x = Dim.2, y = Dim.3)) +
   geom_point(color = "steelblue", size = 3) +
   geom_text_repel(aes(label = city), size = 3, max.overlaps = 30) +
+
   # Scaled variable vectors
   geom_segment(data = loadings_scaled,
                aes(x = 0, y = 0, xend = Dim.2, yend = Dim.3),
@@ -333,19 +456,52 @@ ggplot(scores_viz, aes(x = Dim.2, y = Dim.3)) +
   geom_text_repel(data = loadings_scaled,
                   aes(x = Dim.2, y = Dim.3, label = var),
                   color = "red", size = 4) +
+
   labs(title = "PCA Biplot of US Cities",
        subtitle = "PC2: Climate (Cold/Wet vs. Warm/Dry), PC3: Temperature",
        x = paste0("PC2 (", round(pca_result$eig[2,2], 2), "%)"),
        y = paste0("PC3 (", round(pca_result$eig[3,2], 2), "%)")) +
   theme_classic(base_size = 14)
+
 ggsave("plots/biplot_pc2_pc3_plot.png", width = 8, height = 5, dpi = 300)
+
+aes(x = Dim.1, y = Dim.3)   # for PC2 vs PC3
+aes(x = Dim.2, y = Dim.3)   # for PC1 vs PC3
+
 ```
 
-##### PC1 vs PC3
-```{r biplot-pc1-pc3, echo=FALSE}
-ggplot(scores_viz, aes(x = Dim.1, y = Dim.3)) +
+## PC1 vs PC3
+
+
+```{r , echo=FALSE}
+library(FactoMineR)
+library(factoextra)
+library(ggplot2)
+library(ggrepel)
+
+# Prepare data (exclude city column)
+pca_input <- data5[, -which(names(data5) == "city")]
+
+# Run PCA
+pca_result <- PCA(pca_input, scale.unit = TRUE, graph = FALSE)
+
+# Scores (coordinates of cities)
+scores <- as.data.frame(pca_result$ind$coord)
+scores$city <- data5$city
+
+# Loadings (variable contributions)
+loadings <- as.data.frame(pca_result$var$coord)
+loadings$var <- rownames(loadings)
+
+scale_factor <- 3  # You can adjust this (try 2–5 depending on spread)
+loadings_scaled <- loadings
+loadings_scaled$Dim.1 <- loadings$Dim.1 * scale_factor
+loadings_scaled$Dim.3 <- loadings$Dim.3 * scale_factor
+
+ggplot(scores, aes(x = Dim.1, y = Dim.3)) +
   geom_point(color = "steelblue", size = 3) +
   geom_text_repel(aes(label = city), size = 3, max.overlaps = 30) +
+
   # Scaled variable vectors
   geom_segment(data = loadings_scaled,
                aes(x = 0, y = 0, xend = Dim.1, yend = Dim.3),
@@ -354,18 +510,37 @@ ggplot(scores_viz, aes(x = Dim.1, y = Dim.3)) +
   geom_text_repel(data = loadings_scaled,
                   aes(x = Dim.1, y = Dim.3, label = var),
                   color = "red", size = 4) +
+
   labs(title = "PCA Biplot of US Cities",
        subtitle = "PC1: Industrialization/Urbanization, PC3: Temperature",
        x = paste0("PC1 (", round(pca_result$eig[1,2], 2), "%)"),
        y = paste0("PC3 (", round(pca_result$eig[3,2], 2), "%)")) +
   theme_classic(base_size = 14)
+
 ggsave("plots/biplot_pc1_pc3_plot.png", width = 8, height = 5, dpi = 300)
+
+
 ```
 
-#### 3D Scatter Plot
-```{r 3d-pca-plot-v2}
-# Using the scores_df object from the scores-prep chunk
-# Get the proportion of variance explained for axis labels
+# 3D plots
+
+
+```{r 3d-pca-plot-v2, message=FALSE, warning=FALSE}
+library(plotly)
+data5_2 <- prcomp(data5_variables, scale. = TRUE)
+
+raw_standardized_data <- as.data.frame(scale(data5_variables))
+
+pca_scores_data <- pca_scores_data <- as.data.frame(pca_results$scores[, 1:3])
+
+pca_scores <- as.data.frame(data5_2$x)
+
+# 1. Extract the scores and city names from our existing PCA results
+scores_df <- as.data.frame(pca_results$scores)
+scores_df$city <- data5$city
+
+# 2. Get the proportion of variance explained for axis labels
+# This comes from the summary of our pca_results object
 pca_summary <- summary(pca_results)
 variance_explained <- pca_summary$sdev^2 / sum(pca_summary$sdev^2)
 
@@ -373,8 +548,8 @@ pc1_label <- paste0("PC1 (", round(variance_explained[1] * 100, 1), "%)")
 pc2_label <- paste0("PC2 (", round(variance_explained[2] * 100, 1), "%)")
 pc3_label <- paste0("PC3 (", round(variance_explained[3] * 100, 1), "%)")
 
-# Create the interactive 3D plot
-plot_ly(data = scores,
+# 3. Create the interactive 3D plot
+plot_ly(data = scores_df,
         x = ~Comp.1, y = ~Comp.2, z = ~Comp.3,
         text = ~city, # Use city names for hover text
         type = 'scatter3d',
@@ -390,64 +565,148 @@ plot_ly(data = scores,
   )
 ```
 
-## Cluster Analysis
+# Cluster Analysis
 
-### Cluster Analysis with the Original Data
-To perform and obtain the dendograms we need to determine the distances (to cluster the groups).
-```{r cluster-prep-raw, echo=FALSE}
+Now we will do a completely different analysis and group similar cities using *hierarchical clustering*. We will perform this in two forms, with the original data and with the PCA scores, since it's normal to use the latter in some types of analyses.
+
+```{r libraries}
+#Load the libraries needed
+library(tidyverse) #data manipulation
+library(cluster) #clustering algorithms
+library(factoextra) #clustering visualization
+library(dendextend) #for comparing two dendograms
+library(laGP) #squared Euclidean distance
+library(metan) #clustering algorithms
+library(tidygeocoder) # for geocoding
+library(maps) # for map data
+
+```
+
+
+
+
+
+
+
+## Cluster Analysis with the Original Data
+
+To perform and obtain the *dendograms* we need to determine
+the distances (to cluster the groups).
+
+```{r, echo=FALSE}
 # We Scale the data to perform the euclidean distance.
 data5_v <- scale(data5_variables)
+
 # Eucledian distance.
 dist_data5 <- dist(data5_v, method = "euclidean")
+dist_data5
 ```
 
-#### SINGLE LINKAGE
-```{r hclust-raw-single}
+### SINGLE LINKAGE
+
+```{r}
 hc1_s <- agnes(dist_data5, method = "single")
-hc1_s$ac # AC value
-clust_single_s <- hclust(dist_data5, method="single")
-coph_1_s <- cophenetic(clust_single_s)
-cor(dist_data5, coph_1_s) # Cophenetic Coefficient
+hc1_s$merge
+hc1_s$order
 ```
-Dendogram:
-```{r dend-raw-single}
+
+#### AC value.
+
+```{r}
+hc1_s$ac
+```
+
+#### Cophenetic Coefficient.
+
+```{r}
+#Cophenetic Coefficient
+clust_single_s <- hclust(dist_data5, method="single")
+
+#Cophenetic matrix (delta matrix - obtained based on the dendogram)
+coph_1_s <- cophenetic(clust_single_s)
+
+#Cophenetic coefficient
+cor(dist_data5, coph_1_s)
+```
+
+
+#### Dendogram
+
+
+```{r}
+#Dendrogram
 dend1_s <- as.dendrogram(hc1_s)
+#labels(dend1_s) <- data5$city
 order_in_dend <- order.dendrogram(dend1_s)
 labels(dend1_s) <- data5$city[order_in_dend]
 plot(dend1_s, main = "Single Linkage - standardized data - 2 clusters")
+
 ```
 
-#### COMPLETE LINKAGE
-```{r hclust-raw-complete}
+### COMPLETE LINKAGE
+
+
+```{r}
 hc2_s <- agnes(dist_data5, method = "complete")
-hc2_s$ac # AC value
-clust_complete_s <- hclust(dist_data5, method="complete")
-coph_2_s <- cophenetic(clust_complete_s)
-cor(dist_data5, coph_2_s) # Cophenetic Coefficient
+hc2_s$merge
+hc2_s$order
 ```
-Dendogram:
-```{r dend-raw-complete}
+
+#### AC Value 
+
+```{r}
+hc2_s$ac
+```
+
+#### Cophenetic Coefficient
+
+```{r}
+#Cophenetic Coefficient
+clust_complete_s <- hclust(dist_data5, method="complete")
+
+#Cophenetic matrix (delta matrix - obtained based on the dendogram)
+coph_2_s <- cophenetic(clust_complete_s)
+
+#Cophenetic coefficient
+cor(dist_data5, coph_2_s)
+```
+
+It's a smaller value than the *Single Linkage* one.
+
+#### Dendrogram
+
+```{r}
+#Dendrogram
 dend2_s <- as.dendrogram(hc2_s)
+#labels(dend1_s) <- data5$city
 order_in_dend2 <- order.dendrogram(dend2_s)
 labels(dend2_s) <- data5$city[order_in_dend2]
 plot(dend2_s, main = "Complete Linkage - standardized data - 2 clusters")
 abline(h = 8, col = "red", lwd = 2)
 rect.hclust(hc2_s, k=2, border = 2:4)
 ```
-Visualization of clusters:
-```{r viz-cluster-raw-complete}
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(ggforce)
+
 k <- 2
 clusters <- cutree(hc2_s, k = k)
+
 df <- data.frame(
   city = data5$city,
   cluster = factor(clusters)
 )
+
 circles <- data.frame(
   cluster = factor(c(1,2)),
   x0 = c(-1, 1),
   y0 = c(0, 0),
   r = c(1.8, 1.8)
 )
+
 set.seed(123)
 df <- df %>%
   left_join(circles, by = "cluster") %>%
@@ -456,6 +715,7 @@ df <- df %>%
     x = x0 + runif(1, -0.9, 0.9),
     y = y0 + runif(1, -0.9, 0.9)
   )
+
 ggplot() +
   geom_circle(data = circles,
               aes(x0 = x0, y0 = y0, r = r, fill = cluster),
@@ -467,199 +727,390 @@ ggplot() +
   ggtitle("Cities Distributed By Clusters")
 ```
 
-#### WARD LINKAGE
-```{r hclust-raw-ward}
+
+
+
+
+
+
+
+
+### WARD LINKAGE
+
+```{r}
 hc3_s <- agnes(dist_data5, method = "ward")
-hc3_s$ac # AC value
-clust_ward_s <- hclust(dist_data5, method="ward")
-coph_3_s <- cophenetic(clust_ward_s)
-cor(dist_data5, coph_3_s) # Cophenetic Coefficient
+hc3_s$merge
+hc3_s$order
 ```
-Dendogram:
-```{r dend-raw-ward}
+
+#### AC ward
+
+```{r}
+hc3_s$ac
+```
+The AC value is high.
+
+#### Cophenetic Coefficient
+
+```{r}
+#Cophenetic Coefficient
+clust_ward_s <- hclust(dist_data5, method="ward")
+
+#Cophenetic matrix (delta matrix - obtained based on the dendogram)
+coph_3_s <- cophenetic(clust_ward_s)
+
+#Cophenetic coefficient
+cor(dist_data5, coph_3_s)
+```
+
+#### Dendrogram
+
+```{r}
 dend3_s <- as.dendrogram(hc3_s)
+#labels(dend1_s) <- data5$city
 order_in_dend3 <- order.dendrogram(dend3_s)
 labels(dend3_s) <- data5$city[order_in_dend3]
 plot(dend3_s, main = "Ward Linkage - standardized data - 2 clusters")
+
 ```
 
-### Cluster Analysis with the PCA Data
-```{r cluster-prep-pca}
-# Use scores from the PCA results
-pca_cluster <- scores[,1:3]
+## Cluster Analysis with the PCA Data
+
+Add cities names´ to the pca_scores table
+
+```{r}
+identical(rownames(pca_scores), rownames(data5))
+pca_scores2 <- cbind(city = data5$city, pca_scores)
+#Considering 3 principal components for the PCA data :
+pca_results$sdev
+
+pca_results$sdev[1:3]
+#In order to perform and obtain the dendograms, we need to determine the distances
+#(to cluster the groups).
+
+pca_cluster <- pca_scores[,1:3] ; pca_cluster
+pca_cluster2 <- pca_scores2[,1:4] ; pca_cluster2 #usar com labels das cidades
+
 dist_pca <- dist(pca_cluster,method="euclidean")
+dist_pca
 ```
 
-#### SINGLE LINKAGE
-```{r hclust-pca-single}
-hcpca1 <- agnes(dist_pca,method="single")
-hcpca1$ac # AC
-clust_pca_s <- hclust(dist_pca, method="single")
-coph_pca_s <- cophenetic(clust_pca_s)
-cor(dist_pca, coph_pca_s) # Cophenetic
+### SINGLE LINKAGE
+```{r}
+#hierarchical clustering (aglommerative) using Single Linkage
+hcpca1 <- agnes(dist_pca,method="single") #agnes Computes agglomerative hierarchical clustering of the dataset.
+hcpca1$merge
+#Visualize the order in which the objects, clustered, appear in the dendrogram.
+hcpca1$order
+
 ```
-Dendogram:
-```{r dend-pca-single}
+
+#### AC
+
+```{r}
+hcpca1$ac
+```
+
+#### Cophenetic single
+
+```{r}
+clust_pca <- clustering(pca_cluster,distmethod = "euclidean",clustmethod = "single")
+clust_pca$cophenetic
+```
+
+#### Dendogram
+
+```{r}
 dend1_pca <- as.dendrogram(hcpca1)
 order_in_dend <- order.dendrogram(dend1_pca)
 labels(dend1_pca) <- data5$city[order_in_dend]
+dend1_pca
 plot(dend1_pca,main="Single Linkage for PCA data - 2 clusters")
+
 ```
 
-#### COMPLETE LINKAGE
-```{r hclust-pca-complete}
-hcpca2 <- agnes(dist_pca,method="complete")
-hcpca2$ac # AC
-clust_pca_c <- hclust(dist_pca, method="complete")
-coph_pca_c <- cophenetic(clust_pca_c)
-cor(dist_pca, coph_pca_c) # Cophenetic
+
+### COMPLETE LINKAGE
+
+```{r}
+hcpca2 <- agnes(pca_cluster,method="complete")
+hcpca2$merge
+hcpca2$order
 ```
-Dendogram:
-```{r dend-pca-complete}
+
+#### AC complete
+
+```{r}
+hcpca2$ac
+```
+
+#### Cophenetic Coefficient
+
+```{r}
+clust_pca2 <- clustering(pca_cluster,distmethod = "euclidean",clustmethod = "complete")
+clust_pca2$cophenetic
+```
+
+#### Dendrogram
+
+
+```{r}
 dend2_pca <- as.dendrogram(hcpca2)
 order_in_dend <- order.dendrogram(dend2_pca)
 labels(dend2_pca) <- data5$city[order_in_dend]
+dend2_pca
 plot(dend2_pca,main="Complete Linkage for PCA data - 2 clusters")
 rect.hclust(hcpca2,k=2,border=2:4)
 abline(h = 8, col = "red", lwd = 2)
 ```
-Visualization of clusters:
-```{r viz-cluster-pca-complete}
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(ggforce)
+
 k <- 2
-clusters_pca <- cutree(hcpca2, k = k)
-df_pca <- data.frame(
+clusters <- cutree(hcpca2, k = k)
+
+df <- data.frame(
   city = data5$city,
-  cluster = factor(clusters_pca)
+  cluster = factor(clusters)
 )
-# Using circles object from previous chunk
+
+circles <- data.frame(
+  cluster = factor(c(1,2)),
+  x0 = c(-1, 1),
+  y0 = c(0, 0),
+  r = c(1.8, 1.8)
+)
+
 set.seed(123)
-df_pca <- df_pca %>%
+df <- df %>%
   left_join(circles, by = "cluster") %>%
   rowwise() %>%
   mutate(
     x = x0 + runif(1, -0.9, 0.9),
     y = y0 + runif(1, -0.9, 0.9)
   )
+
 ggplot() +
   geom_circle(data = circles,
               aes(x0 = x0, y0 = y0, r = r, fill = cluster),
               alpha = 0.2, color = "black", linewidth = 1.2) +
-  geom_text(data = df_pca, aes(x = x, y = y, label = city), size = 5) +
+  geom_text(data = df, aes(x = x, y = y, label = city), size = 5) +
   coord_fixed() +
   theme_void() +
   scale_fill_manual(values = c("#66c2a5", "#fc8d62")) +
-  ggtitle("Cities Distributed By Clusters (from PCA scores)")
+  ggtitle("Cities Distributed By Clusters")
+
 ```
 
-#### WARD METHOD
-```{r hclust-pca-ward}
-hcpca3 <- agnes(dist_pca,method="ward")
-hcpca3$ac # AC
-clust_pca_w <- hclust(dist_pca, method="ward.D2") # Use ward.D2 for hclust
-coph_pca_w <- cophenetic(clust_pca_w)
-cor(dist_pca, coph_pca_w) # Cophenetic
+
+
+
+
+
+
+
+### WARD METHOD
+
+
+```{r}
+hcpca3 <- agnes(pca_cluster,method="ward")
+hcpca3$merge
+hcpca3$order
 ```
-Dendograma:
-```{r dend-pca-ward}
+
+#### AC Ward.
+
+```{r}
+hcpca3$ac
+```
+
+
+#### Cophenetic Ward.
+
+```{r}
+clust_pca3 <- clustering(pca_cluster,distmethod = "euclidean",clustmethod = "ward.D")
+clust_pca3$cophenetic
+```
+
+#### Dendrograma.
+
+```{r}
 dend3_pca <- as.dendrogram(hcpca3)
 order_in_dend <- order.dendrogram(dend3_pca)
 labels(dend3_pca) <- data5$city[order_in_dend]
+dend3_pca
 plot(dend3_pca,main="Ward method for PCA data - 2 clusters")
 ```
 
-### Summary of Clustering Methods
-```{r summary-hclust-tables}
-# Table for Raw Data
+
+# Summary linkage methods
+
+## Tabla Raw data.
+
+```{r}
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# Create table with the values you provided
 diagnostics_table <- data.frame(
   Method = c("Single Linkage", "Complete Linkage", "Ward.D2"),
-  Agglomerative_Coefficient = c(hc1_s$ac, hc2_s$ac, hc3_s$ac),
-  Cophenetic_Correlation = c(cor(dist_data5, coph_1_s), cor(dist_data5, coph_2_s), cor(dist_data5, coph_3_s))
+  Agglomerative_Coefficient = c(0.7033724, 0.8376211, 0.8552635),
+  Cophenetic_Correlation = c(0.8533611, 0.6873652, 0.4697547)
 )
-kable(diagnostics_table, format = "html", digits = 4, align = c("l", "r", "r"),
-        caption = "Clustering diagnostics for Raw Standardized Data") %>%
-  kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover"))
 
-# Table for PCA Data
-diagnostics_table2 <- data.frame(
-  Method = c("Single Linkage", "Complete Linkage", "Ward.D2"),
-  Agglomerative_Coefficient = c(hcpca1$ac, hcpca2$ac, hcpca3$ac),
-  Cophenetic_Correlation = c(cor(dist_pca, coph_pca_s), cor(dist_pca, coph_pca_c), cor(dist_pca, coph_pca_w))
-)
-kable(diagnostics_table2, format = "html", digits = 4, align = c("l", "r", "r"),
-        caption = "Clustering diagnostics for PCA-based scores") %>%
-  kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover"))
+# Format and render as a styled HTML table
+diagnostics_table %>%
+  mutate(across(where(is.numeric), ~ round(.x, 4))) %>%
+  kable(format = "html",
+        col.names = c("Method", "Agglomerative Coefficient (AC)", "Cophenetic Correlation Coefficient"),
+        align = c("l", "r", "r"),
+        caption = "Clustering diagnostics for PCA-based dendrograms") %>%
+  kable_styling(full_width = FALSE, position = "center",
+                bootstrap_options = c("striped", "hover"))
+
 ```
 
-### Comparison of Dendrograms
-```{r compare-dendrograms}
-# Combining PCA dendrograms
-dend_single_pca   <- as.dendrogram(as.hclust(hcpca1)) %>% ladderize()
-dend_complete_pca <- as.dendrogram(as.hclust(hcpca2)) %>% ladderize()
-dend_ward_pca     <- as.dendrogram(as.hclust(hcpca3)) %>% ladderize()
-# set labels
-labels(dend_single_pca)   <- data5$city[order.dendrogram(dend_single_pca)]
-labels(dend_complete_pca) <- data5$city[order.dendrogram(dend_complete_pca)]
-labels(dend_ward_pca)     <- data5$city[order.dendrogram(dend_ward_pca)]
-# smaller label text
+## Tabla PCA
+
+```{r}
+
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+diagnostics_table2 <- data.frame(
+  Method = c("Single Linkage", "Complete Linkage", "Ward.D2"),
+  Agglomerative_Coefficient = c(0.8118718, 0.9007324, 0.8958177),
+  Cophenetic_Correlation = c(0.8529945, 0.7569114, 0.4519069)
+)
+
+diagnostics_table2 %>%
+  mutate(across(where(is.numeric), ~ round(.x, 4))) %>%
+  kable(format = "html",
+        col.names = c("Method", "Agglomerative Coefficient (AC)", "Cophenetic Correlation Coefficient"),
+        align = c("l", "r", "r"),
+        caption = "Clustering diagnostics (updated)") %>%
+  kable_styling(full_width = FALSE, position = "center",
+                bootstrap_options = c("striped", "hover"))
+
+```
+
+
+## Combining of PCA dendrograms.
+
+```{r}
+# packages
+library(cluster)     # agnes
+library(dendextend)  # ladderize, set(..., "labels_cex")
+
+# Ensure PCA scores exist and select first 3 PCs (adjust ncomp if needed)
+if (!exists("pca_scores")) {
+  stop("pca_scores not found. Run PCA and create 'pca_scores' before this chunk.")
+}
+ncomp <- min(3, ncol(pca_scores))
+pca_cluster <- as.data.frame(pca_scores)[, 1:ncomp, drop = FALSE]
+
+# compute agglomerative clusterings (single, complete, ward) on PCA scores
+hc_single_pca   <- agnes(pca_cluster, method = "single")
+hc_complete_pca <- agnes(pca_cluster, method = "complete")
+hc_ward_pca     <- agnes(pca_cluster, method = "ward")   # agnes "ward"
+
+# convert to hclust for convenience and create dendrograms
+hclust_single_pca   <- as.hclust(hc_single_pca)
+hclust_complete_pca <- as.hclust(hc_complete_pca)
+hclust_ward_pca     <- as.hclust(hc_ward_pca)
+
+dend_single_pca   <- as.dendrogram(hclust_single_pca)   %>% ladderize()
+dend_complete_pca <- as.dendrogram(hclust_complete_pca) %>% ladderize()
+dend_ward_pca     <- as.dendrogram(hclust_ward_pca)     %>% ladderize()
+
+# set labels in plotting order and reduce label size
+if (!is.null(data5$city)) {
+  labels(dend_single_pca)   <- data5$city[order.dendrogram(dend_single_pca)]
+  labels(dend_complete_pca) <- data5$city[order.dendrogram(dend_complete_pca)]
+  labels(dend_ward_pca)     <- data5$city[order.dendrogram(dend_ward_pca)]
+} else {
+  labels(dend_single_pca)   <- rownames(pca_cluster)[order.dendrogram(dend_single_pca)]
+  labels(dend_complete_pca) <- rownames(pca_cluster)[order.dendrogram(dend_complete_pca)]
+  labels(dend_ward_pca)     <- rownames(pca_cluster)[order.dendrogram(dend_ward_pca)]
+}
+
+# smaller label text for all dendrograms
 dend_single_pca   <- set(dend_single_pca,   "labels_cex", 0.55)
 dend_complete_pca <- set(dend_complete_pca, "labels_cex", 0.55)
 dend_ward_pca     <- set(dend_ward_pca,     "labels_cex", 0.55)
 
 plot_three_pca_dendros <- function(d1, d2, d3) {
-  op <- par(mfrow = c(1, 3), mar = c(8, 4, 3, 1) + 0.1)
-  plot(d1, main = "Single linkage (PCA scores)", ylab = "Height")
-  plot(d2, main = "Complete linkage (PCA scores)", ylab = "Height")
-  plot(d3, main = "Ward linkage (PCA scores)", ylab = "Height")
+  op <- par(mfrow = c(1, 3), mar = c(8, 4, 3, 1) + 0.1)  # extra bottom margin for labels
+  plot(d1, main = "Single linkage (PCA scores)", ylab = "Height",
+       edgePar = list(col = "darkgray", lwd = 1))
+  plot(d2, main = "Complete linkage (PCA scores)", ylab = "Height",
+       edgePar = list(col = "darkgray", lwd = 1))
+  plot(d3, main = "Ward linkage (PCA scores)", ylab = "Height",
+       edgePar = list(col = "darkgray", lwd = 1))
   par(op)
 }
+
 # Display in the knitted report
 plot_three_pca_dendros(dend_single_pca, dend_complete_pca, dend_ward_pca)
-# Save PNG
+
+# Save identical high-resolution PNG to plots/ (re-run the same plotting code inside png())
+if (!dir.exists("plots")) dir.create("plots")
 png(filename = "plots/pca_dendrograms_comparison.png", width = 2400, height = 1000, res = 300)
 plot_three_pca_dendros(dend_single_pca, dend_complete_pca, dend_ward_pca)
 dev.off()
+
 ```
 
-### Optimal Number of Clusters
-Comparison of Average Silhouette Scores for Complete Linkage method.
-```{r silhouette-combine}
+
+## Silhouette combine
+
+```{r Silhouette combine}
 # 1. Generate data for Silhouette method
-pca_scores_data <- pca_scores[,1:3]
-raw_standardized_data <- as.data.frame(scale(data5_variables))
-sil_plot_pca <- fviz_nbclust(pca_scores_data, FUNcluster = function(x, k) hcut(x, k, hc_method = "complete"), method = "silhouette")
-sil_plot_raw <- fviz_nbclust(raw_standardized_data, FUNcluster = function(x, k) hcut(x, k, hc_method =  "complete"), method = "silhouette")
-# 2. Extract and combine
-data_sil_pca <- sil_plot_pca$data
-data_sil_raw <- sil_plot_raw$data
-data_sil_pca$Approach <- "Robust (PCA)"
-data_sil_raw$Approach <- "Standarized (Raw)"
-combined_sil_data <- rbind(data_sil_pca, data_sil_raw)
-# 3. Create superior comparison plot
-ggplot(combined_sil_data, aes(x = clusters, y = y, group = Approach, color = Approach)) +
-  geom_line(linewidth = 1.2) +
-  geom_point(size = 3) +
-  labs(
-    title = "Comparison of Average Silhouette Scores",
-    subtitle = "Robust (PCA) vs. Standarized (Raw) Approach",
-    x = "Number of Clusters (k)",
-    y = "Average Silhouette Width"
-  ) +
-  theme_minimal(base_size = 14) +
-  scale_color_manual(values = c("Robust (PCA)" = "blue", "Standarized (Raw)" = "red"))
+ sil_plot_pca <- fviz_nbclust(pca_scores_data, FUNcluster = function(x, k) hcut(x, k, hc_method = "complete"), method = "silhouette")
+ sil_plot_raw <- fviz_nbclust(raw_standardized_data, FUNcluster = function(x, k) hcut(x, k, hc_method =  "complete"), method = "silhouette")
+
+ # 2. Extract and combine
+ data_sil_pca <- sil_plot_pca$data
+ data_sil_raw <- sil_plot_raw$data
+
+ data_sil_pca$Approach <- "Robust (PCA)"
+ data_sil_raw$Approach <- "Standarized (Raw)"
+
+ combined_sil_data <- rbind(data_sil_pca, data_sil_raw)
+
+ # 3. Create superior comparison plot
+ ggplot(combined_sil_data, aes(x = clusters, y = y, group = Approach, color = Approach)) +
+   geom_line(linewidth = 1.2) +
+   geom_point(size = 3) +
+   labs(
+     title = "Comparison of Average Silhouette Scores",
+     subtitle = "Robust (PCA) vs. Standarized (Raw) Approach",
+     x = "Number of Clusters (k)",
+     y = "Average Silhouette Width"
+   ) +
+   theme_minimal(base_size = 14) +
+   scale_color_manual(values = c("Robust (PCA)" = "blue", "Standarized (Raw)" = "red"))
 ```
 
-# 5. Appendix: Additional Analyses
 
-This section contains supplementary analyses performed to validate our choices.
 
-## Geospatial Analysis
+# Spatial Analysis & Comparison
+
 This section elevates the project by mapping the results. We will investigate if the clusters we identified have a geographic pattern.
-```{r spatial-analysis, eval=run_spatial_analysis}
+
+**NOTE:** The following chunk requires a working internet connection. If the script hangs, ensure `run_spatial_analysis` is `FALSE` in the `setup-spatial-toggle` chunk.
+
+```{r spatial-analysis, eval=run_spatial_analysis, fig.width=10, fig.height=7, warning=FALSE, message=FALSE}
 # GOAL: Geocode cities and create a map of the US with cities colored by cluster.
-# Using the clusters from the PCA-based analysis
-data_with_clusters <- data.frame(data5, cluster = factor(clusters_pca))
 
 print("Attempting to geocode cities. This may take a moment...")
+
 geocoded_data <- tryCatch({
   data_with_clusters %>%
     geocode(city = city, method = 'osm', verbose = FALSE)
@@ -670,7 +1121,9 @@ geocoded_data <- tryCatch({
 
 if (!is.null(geocoded_data) && all(c("lat", "long") %in% colnames(geocoded_data)) && sum(!is.na(geocoded_data$lat)) > 0) {
   print("Geocoding successful. Generating map...")
+
   us_map <- map_data("state")
+
   ggplot() +
     geom_polygon(data = us_map, aes(x = long, y = lat, group = group), fill = "grey80", color = "white") +
     geom_point(data = geocoded_data, aes(x = long, y = lat, color = as.factor(cluster)), size = 3, alpha = 0.8) +
@@ -692,32 +1145,55 @@ if (!is.null(geocoded_data) && all(c("lat", "long") %in% colnames(geocoded_data)
 }
 ```
 
+
+
+
+
+
+
+# Additional Graphics / Experimentations
+
 ## Elbow Method
-```{r elbow-method-appendix}
+
+```{r}
 #non hierarchical, n da para usar. Silhoette da para usar.
+library(factoextra)
 fviz_nbclust(data5_v, hcut, method = "wss")
 ```
 (Here we can see the elbow point at 3 clusters, or even 4 clusters, but we considered
 the optimal number of clusters k=3)
 
-## Elbow method comparison
-```{r elbow-method-comparison-appendix}
+
+## Elbow method for the best linkage method
+
+```{r Elbow method for the best linkage method}
 raw_standardized_data <- data5_v
+
+# Assuming 'pca_scores' are your 3 PC scores
+# and 'hc_complete_pca' is your hclust object from Complete Linkage
+#
 # The fviz_nbclust function can take the original data and apply
 # the clustering for you for a range of k.
+
+
+library(factoextra)
 elbow_plot_raw <- fviz_nbclust(raw_standardized_data,
   FUNcluster = function(x, k) hcut(x, k, hc_method = "complete"),
   method = "wss")
-pca_scores_data <- pca_scores[,1:3]
+
 elbow_plot_pca <- fviz_nbclust(pca_scores_data,
   FUNcluster = function(x, k) hcut(x, k, hc_method = "complete"),
   method = "wss")
+
  # 2. Extract and combine
  data_elbow_pca <- elbow_plot_pca$data
  data_elbow_raw <- elbow_plot_raw$data
+
  data_elbow_pca$Approach <- "Robust (PCA)"
  data_elbow_raw$Approach <- "Standarized (Raw)"
+
  combined_elbow_data <- rbind(data_elbow_pca, data_elbow_raw)
+
  # 3. Create superior comparison plot
  ggplot(combined_elbow_data, aes(x = clusters, y = y, group = Approach, color = Approach)) +
    geom_line(linewidth = 1.2) +
@@ -729,12 +1205,17 @@ elbow_plot_pca <- fviz_nbclust(pca_scores_data,
    ) +
    theme_minimal(base_size = 14) +
    scale_color_manual(values = c("Robust (PCA)" = "blue", "Standarized (Raw)" = "red"))
+
 ```
 
-## Gap Statistic
-```{r gap-statistic-appendix}
+
+
+## Gap Statistic for raw data
+
+```{r Gap Statistic for raw data}
+library(factoextra)
+
 # Gap Statistic for PCA scores
-pca_scores2 <- cbind(city = data5$city, scores)
 set.seed(123)  # reproducibility
 fviz_nbclust(
   pca_scores2[, -1],   # exclude the city column, keep only numeric PCs
@@ -750,10 +1231,12 @@ fviz_nbclust(
   ) +
   theme_minimal(base_size = 14)
 
-# Gap statistic on raw standardized data
-gap_stat <- clusGap(data5_v,
+gap_stat <- clusGap(data5_v[, -1],
                     FUN = function(x, k) hcut(x, k, hc_method = "complete"),
                     K.max = 10, B = 50)
+
 fviz_gap_stat(gap_stat)
+
 ```
-</div>
+
+
